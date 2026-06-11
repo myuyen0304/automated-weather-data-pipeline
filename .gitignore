@@ -1,0 +1,13 @@
+.env
+.venv/
+.uv-cache/
+venv/
+__pycache__/
+*.py[cod]
+
+data/raw/
+data/cleaned/
+
+logs/
+*.pbix
+docs/

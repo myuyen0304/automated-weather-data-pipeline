@@ -1,0 +1,28 @@
+# PostgreSQL cho Automated Weather Data Pipeline.
+# Bật bằng:   docker compose up -d
+# Tắt bằng:   docker compose down            (giữ dữ liệu)
+# Xóa sạch:   docker compose down -v         (xóa luôn volume dữ liệu)
+#
+# Giá trị POSTGRES_* phải khớp với file .env (DB_NAME / DB_USER / DB_PASSWORD).
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: weather_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: weather_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - weather_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d weather_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  weather_pgdata:
