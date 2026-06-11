@@ -28,7 +28,19 @@ def main() -> None:
         action="store_true",
         help="Also load cleaned data into PostgreSQL (requires a running DB).",
     )
+    parser.add_argument(
+        "--date",
+        help="Transform raw JSON from one partition, formatted as YYYY-MM-DD.",
+    )
+    parser.add_argument(
+        "--all-raw",
+        action="store_true",
+        help="Reprocess all raw JSON history instead of the current batch/latest date.",
+    )
     args = parser.parse_args()
+
+    if args.extract_only and args.load:
+        parser.error("--extract-only cannot be combined with --load because load needs transformed data.")
 
     # --init-db chạy độc lập: chỉ tạo schema rồi thoát.
     if args.init_db:
@@ -38,11 +50,15 @@ def main() -> None:
         init_database()
         return
 
+    extracted_paths = []
     if not args.skip_extract:
-        extract_all_cities()
+        extracted_paths = extract_all_cities()
 
     if not args.extract_only:
-        transform_raw_files()
+        if extracted_paths and not args.date and not args.all_raw:
+            transform_raw_files(raw_files=extracted_paths)
+        else:
+            transform_raw_files(run_date=args.date, include_history=args.all_raw)
 
     if args.load:
         from load_postgres import load_to_postgres

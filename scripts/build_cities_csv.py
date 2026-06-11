@@ -191,6 +191,21 @@ def main() -> None:
         print("Khong lay duoc tinh nao — khong ghi file.", file=sys.stderr)
         sys.exit(1)
 
+    if missing:
+        print(
+            f"Khong ghi file vi con thieu {len(missing)} tinh/thanh: "
+            f"{', '.join(missing)}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if len(rows) != len(PROVINCES):
+        print(
+            f"Khong ghi file vi chi co {len(rows)}/{len(PROVINCES)} dong.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_PATH.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(
@@ -200,11 +215,6 @@ def main() -> None:
         writer.writerows(rows)
 
     print(f"\nDa ghi {len(rows)}/{len(PROVINCES)} tinh vao {OUTPUT_PATH}")
-    if missing:
-        print(
-            f"Can xu ly tay {len(missing)} tinh (khong tim thay/loi): "
-            f"{', '.join(missing)}"
-        )
 
 
 if __name__ == "__main__":

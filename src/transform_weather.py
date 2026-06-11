@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -78,15 +78,49 @@ def normalize_weather_record(raw_path: Path) -> dict[str, Any]:
     }
 
 
+def list_raw_weather_files(
+    raw_dir: Path = RAW_DATA_DIR,
+    run_date: str | None = None,
+    include_history: bool = False,
+) -> list[Path]:
+    if run_date is not None:
+        target_dir = raw_dir / f"date={run_date}"
+        raw_files = sorted(target_dir.glob("*.json"))
+        if not raw_files:
+            raise FileNotFoundError(f"No raw JSON files found under {target_dir}")
+        return raw_files
+
+    if include_history:
+        raw_files = sorted(raw_dir.rglob("*.json"))
+        if not raw_files:
+            raise FileNotFoundError(f"No raw JSON files found under {raw_dir}")
+        return raw_files
+
+    date_dirs = sorted(path for path in raw_dir.glob("date=*") if path.is_dir())
+    if not date_dirs:
+        raise FileNotFoundError(f"No date partitions found under {raw_dir}")
+
+    latest_dir = date_dirs[-1]
+    raw_files = sorted(latest_dir.glob("*.json"))
+    if not raw_files:
+        raise FileNotFoundError(f"No raw JSON files found under {latest_dir}")
+    return raw_files
+
+
 def transform_raw_files(
     raw_dir: Path = RAW_DATA_DIR,
     output_path: Path | None = None,
+    raw_files: Iterable[Path] | None = None,
+    run_date: str | None = None,
+    include_history: bool = False,
 ) -> Path:
-    raw_files = sorted(raw_dir.rglob("*.json"))
-    if not raw_files:
-        raise FileNotFoundError(f"No raw JSON files found under {raw_dir}")
+    selected_raw_files = (
+        sorted(raw_files)
+        if raw_files is not None
+        else list_raw_weather_files(raw_dir, run_date, include_history)
+    )
 
-    records = [normalize_weather_record(raw_path) for raw_path in raw_files]
+    records = [normalize_weather_record(raw_path) for raw_path in selected_raw_files]
     df = pd.DataFrame(records)
     df["observation_time"] = pd.to_datetime(df["observation_time"])
     df["inserted_at"] = pd.to_datetime(df["inserted_at"])
@@ -96,5 +130,8 @@ def transform_raw_files(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False, encoding="utf-8")
-    print(f"Saved cleaned weather table: {output_path} ({len(df)} rows)")
+    print(
+        f"Saved cleaned weather table: {output_path} "
+        f"({len(df)} rows from {len(selected_raw_files)} raw files)"
+    )
     return output_path

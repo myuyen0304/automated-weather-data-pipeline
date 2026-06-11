@@ -86,8 +86,16 @@ def load_cleaned_to_staging(
     engine = engine or get_engine()
 
     df = pd.read_csv(cleaned_path)
+    missing_columns = [column for column in STAGING_COLUMNS if column not in df.columns]
+    if missing_columns:
+        missing = ", ".join(missing_columns)
+        raise ValueError(f"Cleaned CSV is missing required staging columns: {missing}")
+
+    if df.empty:
+        raise ValueError(f"Cleaned CSV has no rows: {cleaned_path}")
+
     # Chỉ giữ các cột thuộc bảng staging, theo đúng thứ tự.
-    df = df[[c for c in STAGING_COLUMNS if c in df.columns]]
+    df = df[STAGING_COLUMNS]
 
     # Staging là buffer cho batch HIỆN TẠI: xóa sạch trước khi nạp để không
     # tích lũy dữ liệu cũ qua nhiều lần chạy. Star schema vẫn an toàn vì script
