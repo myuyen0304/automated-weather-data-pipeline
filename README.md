@@ -12,7 +12,7 @@ https://api.open-meteo.com/v1/forecast
 
 Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports current weather variables through latitude and longitude, and does not require an API key for the basic forecast/current-weather workflow used here.
 
-The pipeline is automated with a Linux Cron job so weather data can be collected and updated every day without manual execution.
+The pipeline is automated with Windows Task Scheduler (via `run_pipeline.bat`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
 
 ---
 
@@ -28,7 +28,7 @@ The main objectives of this project are:
 - Design a simple analytical data model using fact and dimension tables.
 - Create SQL marts for daily and weekly weather analysis.
 - Visualize weather trends using Power BI.
-- Automate the pipeline using a Linux Cron job.
+- Automate the pipeline using Windows Task Scheduler (or Linux Cron).
 
 ---
 
@@ -53,7 +53,7 @@ SQL Mart Tables
     |
 Power BI Dashboard
     |
-Cron Job Automation
+Windows Task Scheduler (run_pipeline.bat)
 ```
 
 ---
@@ -71,9 +71,10 @@ Cron Job Automation
 | Database | PostgreSQL |
 | Data Modelling | SQL |
 | Analytics Layer | SQL views / mart tables |
+| Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
-| Automation | Linux Cron job |
-| Environment Management | python-dotenv, virtual environment |
+| Automation | Windows Task Scheduler (`run_pipeline.bat`); Linux Cron as an alternative |
+| Environment Management | python-dotenv, virtual environment (`.venv` / `venv` / `uv`) |
 
 ---
 
@@ -83,16 +84,24 @@ The project collects weather data from the Open-Meteo Forecast API.
 
 Open-Meteo requires geographical coordinates, so the pipeline keeps a configured list of cities with latitude and longitude.
 
+The pipeline collects weather for **34 Vietnamese provinces/cities**, configured in `data/cities.csv` and loaded at runtime by `load_cities()` in `src/config.py`. To add or remove a location, edit that CSV — no code change is needed.
+
+First rows of `data/cities.csv`:
+
 | City | Country | Latitude | Longitude |
 |---|---|---:|---:|
-| Ho Chi Minh City | Vietnam | 10.8231 | 106.6297 |
-| Hanoi | Vietnam | 21.0285 | 105.8542 |
-| Da Nang | Vietnam | 16.0544 | 108.2022 |
+| Hanoi | Vietnam | 21.0245 | 105.8412 |
+| Hai Phong | Vietnam | 20.8449 | 106.6881 |
+| Hue | Vietnam | 16.4619 | 107.5955 |
+| Da Nang | Vietnam | 16.0678 | 108.2208 |
+| Ho Chi Minh City | Vietnam | 10.8230 | 106.6296 |
+| Can Tho | Vietnam | 10.0371 | 105.7883 |
+| … | … | … | … |
 
 Example request for Ho Chi Minh City:
 
 ```text
-https://api.open-meteo.com/v1/forecast?latitude=10.8231&longitude=106.6297&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&timezone=Asia/Ho_Chi_Minh&forecast_days=1
+https://api.open-meteo.com/v1/forecast?latitude=10.823&longitude=106.6296&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&timezone=Asia/Ho_Chi_Minh&forecast_days=1
 ```
 
 The pipeline focuses on the `current` weather block. Useful Open-Meteo variables include:
@@ -122,15 +131,18 @@ The pipeline focuses on the `current` weather block. Useful Open-Meteo variables
 automated-weather-data-pipeline/
 |
 ├── data/
+│   ├── cities.csv                       # 34 provinces/cities (CSV-driven config)
 │   ├── raw/
 │   │   └── open-meteo/
+│   │       └── date=YYYY-MM-DD/<city>.json
 │   └── cleaned/
+│       └── weather_observations.csv     # transformed output
 |
 ├── sql/
 │   ├── 01_create_staging_table.sql
 │   ├── 02_create_dimensions.sql
 │   ├── 03_create_fact_table.sql
-│   ├── 04_load_star_schema.sql
+│   ├── 04_load_star_schema.sql          # runs every batch (staging -> star schema)
 │   └── 05_create_marts.sql
 |
 ├── src/
@@ -140,13 +152,20 @@ automated-weather-data-pipeline/
 │   ├── load_postgres.py
 │   └── main.py
 |
-├── dashboard/
-│   └── weather_dashboard.pbix
+├── scripts/
+│   └── build_cities_csv.py
 |
+├── docs/                                # extra guides (Vietnamese)
+├── images/                             # architecture diagram
+|
+├── docker-compose.yml                  # local PostgreSQL (postgres:16)
+├── run_pipeline.bat                    # Windows Task Scheduler entry point
 ├── .env.example
 ├── requirements.txt
 └── README.md
 ```
+
+> A Power BI file (`dashboard/weather_dashboard.pbix`) is optional and not committed to the repo.
 
 ---
 
@@ -395,31 +414,38 @@ PostgreSQL -> mart_daily_weather_summary -> Power BI
 
 ---
 
-## 11. Automation with Cron Job
+## 11. Automation
 
-The pipeline can be scheduled to run every day using a Linux Cron job.
+The pipeline is automated on Windows with **Task Scheduler** running `run_pipeline.bat`,
+which calls `python src\main.py --load` and writes output to `logs\pipeline.log`. The wrapper
+auto-detects the interpreter in this order: `.venv` → `venv` → `uv run`.
 
-Example schedule: run the pipeline every day at 7:00 AM.
+Create a daily 07:00 task from the project root:
+
+```bat
+schtasks /Create /SC DAILY /ST 07:00 /TN WeatherPipeline /TR "\"%CD%\run_pipeline.bat\""
+```
+
+On Linux you can use Cron instead:
 
 ```bash
-0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py
+0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py --load
 ```
 
-The `main.py` file controls the full pipeline:
+### main.py CLI flags
 
-```python
-from extract_weather import extract_all_cities
-from transform_weather import transform_raw_files
-from load_postgres import load_to_postgres
+`src/main.py` orchestrates the pipeline through `argparse`. By default it extracts and transforms;
+loading into PostgreSQL only happens with `--load`.
 
-def main():
-    extract_all_cities()
-    transform_raw_files()
-    load_to_postgres()
-
-if __name__ == "__main__":
-    main()
-```
+| Flag | Effect |
+|---|---|
+| (none) | Extract from Open-Meteo, then transform the current batch to cleaned CSV |
+| `--load` | Also load cleaned data into PostgreSQL and rebuild the star schema |
+| `--init-db` | Create the schema (staging, dims, fact, marts), then exit |
+| `--skip-extract` | Transform existing raw JSON without calling the API |
+| `--extract-only` | Only fetch raw JSON, skip transform (cannot combine with `--load`) |
+| `--date YYYY-MM-DD` | Transform raw JSON from one date partition |
+| `--all-raw` | Reprocess the entire raw history instead of the latest batch |
 
 ---
 
@@ -504,63 +530,69 @@ Then update the PostgreSQL credentials if needed.
 
 ### Step 5: Configure cities
 
-Define the cities and coordinates that the pipeline should collect.
-
-Example city configuration:
-
-```python
-CITIES = [
-    {
-        "city": "Ho Chi Minh City",
-        "country": "Vietnam",
-        "latitude": 10.8231,
-        "longitude": 106.6297,
-    },
-    {
-        "city": "Hanoi",
-        "country": "Vietnam",
-        "latitude": 21.0285,
-        "longitude": 105.8542,
-    },
-    {
-        "city": "Da Nang",
-        "country": "Vietnam",
-        "latitude": 16.0544,
-        "longitude": 108.2022,
-    },
-]
-```
-
-### Step 6: Create database tables
-
-Run SQL scripts in order:
+Cities are defined in `data/cities.csv` (CSV-driven — no code change needed). Each row is
+`city,country,latitude,longitude`:
 
 ```text
-sql/01_create_staging_table.sql
-sql/02_create_dimensions.sql
-sql/03_create_fact_table.sql
-sql/04_load_star_schema.sql
-sql/05_create_marts.sql
+city,country,latitude,longitude
+Hanoi,Vietnam,21.0245,105.8412
+Hai Phong,Vietnam,20.8449,106.6881
+Ho Chi Minh City,Vietnam,10.823,106.6296
+...
 ```
 
-### Step 7: Run the pipeline manually
+Add or remove rows to change which locations the pipeline collects.
+
+### Step 6: Start PostgreSQL
+
+The repo ships a `docker-compose.yml` with PostgreSQL 16. Start it with:
 
 ```bash
-python src/main.py
+docker compose up -d
 ```
 
-### Step 8: Schedule with Cron
+The `POSTGRES_*` values match `.env` (`DB_NAME` / `DB_USER` / `DB_PASSWORD`).
 
-Open crontab:
+### Step 7: Create database tables
+
+Create the schema once (staging, dimensions, fact, marts):
 
 ```bash
-crontab -e
+python src/main.py --init-db
 ```
 
-Add this line:
+This runs `sql/01`, `02`, `03`, and `05`. Note: `sql/04_load_star_schema.sql` is **not** run here —
+it loads data from staging into the star schema and runs on every `--load` batch instead.
+
+### Step 8: Run the pipeline manually
+
+Full run (extract → transform → load into PostgreSQL):
 
 ```bash
-0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py
+python src/main.py --load
+```
+
+Useful variants:
+
+```bash
+python src/main.py                       # extract + transform only (no DB)
+python src/main.py --skip-extract --load # re-transform existing raw, then load
+python src/main.py --date 2026-06-10     # transform one date partition
+python src/main.py --all-raw             # reprocess the full raw history
+```
+
+### Step 9: Schedule daily runs
+
+On Windows, register `run_pipeline.bat` with Task Scheduler:
+
+```bat
+schtasks /Create /SC DAILY /ST 07:00 /TN WeatherPipeline /TR "\"%CD%\run_pipeline.bat\""
+```
+
+On Linux, use Cron instead:
+
+```bash
+0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py --load
 ```
 
 ---
@@ -574,7 +606,7 @@ After the pipeline runs successfully, the system should produce:
 - Fact and dimension tables for analytical querying.
 - SQL mart table or view for dashboard reporting.
 - Power BI dashboard showing weather trends and metrics.
-- Automated daily execution through Cron job.
+- Automated daily execution through Windows Task Scheduler (or Linux Cron).
 
 ---
 
