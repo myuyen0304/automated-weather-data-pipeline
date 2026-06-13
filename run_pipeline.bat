@@ -16,6 +16,29 @@ cd /d "%~dp0"
 if not exist "logs" mkdir "logs"
 
 echo [%date% %time%] Bat dau pipeline >> "logs\pipeline.log"
+echo [%date% %time%] Kiem tra Docker Desktop engine >> "logs\pipeline.log"
+docker info >nul 2>&1
+if errorlevel 1 (
+    if exist "%ProgramFiles%\Docker\Docker\Docker Desktop.exe" (
+        echo [%date% %time%] Docker Desktop chua san sang, thu khoi dong Docker Desktop >> "logs\pipeline.log"
+        start "" "%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
+    ) else (
+        echo [%date% %time%] Docker Desktop chua san sang va khong tim thay Docker Desktop.exe >> "logs\pipeline.log"
+    )
+
+    for /L %%I in (1,1,24) do (
+        timeout /t 5 /nobreak >nul
+        docker info >nul 2>&1
+        if not errorlevel 1 goto docker_ready
+        echo [%date% %time%] Cho Docker Desktop san sang... attempt=%%I/24 >> "logs\pipeline.log"
+    )
+
+    echo [%date% %time%] Docker Desktop van chua san sang sau khi cho. Dung pipeline. >> "logs\pipeline.log"
+    exit /b 1
+)
+
+:docker_ready
+echo [%date% %time%] Docker Desktop engine san sang >> "logs\pipeline.log"
 echo [%date% %time%] Kiem tra PostgreSQL Docker container >> "logs\pipeline.log"
 docker compose up -d >> "logs\pipeline.log" 2>&1
 if errorlevel 1 (

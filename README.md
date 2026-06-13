@@ -12,7 +12,7 @@ https://api.open-meteo.com/v1/forecast
 
 Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports current weather variables through latitude and longitude, and does not require an API key for the basic forecast/current-weather workflow used here.
 
-The pipeline is automated with Windows Task Scheduler (via `run_pipeline.bat`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
+The pipeline is automated with Windows Task Scheduler (via `scripts/run_pipeline_task.ps1`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
 
 ---
 
@@ -53,7 +53,7 @@ SQL Mart Tables
     |
 Power BI Dashboard
     |
-Windows Task Scheduler (run_pipeline.bat)
+Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 ```
 
 ---
@@ -73,7 +73,7 @@ Windows Task Scheduler (run_pipeline.bat)
 | Analytics Layer | SQL views / mart tables |
 | Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
-| Automation | Windows Task Scheduler (`run_pipeline.bat`); Linux Cron as an alternative |
+| Automation | Windows Task Scheduler (`scripts/run_pipeline_task.ps1`); Linux Cron as an alternative |
 | Environment Management | python-dotenv, virtual environment (`.venv` / `venv` / `uv`) |
 
 ---
@@ -153,13 +153,13 @@ automated-weather-data-pipeline/
 │   └── main.py
 |
 ├── scripts/
-│   └── build_cities_csv.py
+│   ├── build_cities_csv.py
+│   └── run_pipeline_task.ps1            # Windows Task Scheduler entry point (PowerShell)
 |
-├── docs/                                # extra guides (Vietnamese)
 ├── images/                             # architecture diagram
 |
 ├── docker-compose.yml                  # local PostgreSQL (postgres:16)
-├── run_pipeline.bat                    # Windows Task Scheduler entry point
+├── run_pipeline.bat                    # manual / alternative pipeline wrapper
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -416,14 +416,35 @@ PostgreSQL -> mart_daily_weather_summary -> Power BI
 
 ## 11. Automation
 
-The pipeline is automated on Windows with **Task Scheduler** running `run_pipeline.bat`,
-which calls `python src\main.py --load` and writes output to `logs\pipeline.log`. The wrapper
-auto-detects the interpreter in this order: `.venv` → `venv` → `uv run`.
+The pipeline is automated on Windows with **Task Scheduler** running
+`scripts\run_pipeline_task.ps1`, which starts PostgreSQL with `docker compose up -d`, waits for
+`weather_postgres` to become healthy, calls `python src\main.py --load`, and writes output to
+`logs\pipeline.log`. Docker Desktop/Docker engine must be running. The script auto-detects the
+interpreter in this order: `.venv` → `venv` → `uv run`. (`run_pipeline.bat` is an equivalent
+manual wrapper for running the same pipeline by hand.)
 
-Create a daily 07:00 task from the project root:
+The live task `WeatherPipeline` runs daily at **08:30**. Register or update it by pointing Task
+Scheduler at `powershell.exe` and passing the script path as an argument:
 
-```bat
-schtasks /Create /SC DAILY /ST 07:00 /TN WeatherPipeline /TR "\"%CD%\run_pipeline.bat\""
+```powershell
+$action = New-ScheduledTaskAction `
+  -Execute "powershell.exe" `
+  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"D:\automated-weather-data-pipeline\scripts\run_pipeline_task.ps1`""
+
+$trigger = New-ScheduledTaskTrigger -Daily -At 08:30
+
+Register-ScheduledTask `
+  -TaskName "WeatherPipeline" `
+  -Action $action `
+  -Trigger $trigger `
+  -Description "Run automated weather data pipeline daily" `
+  -Force
+```
+
+Verify it with:
+
+```powershell
+schtasks /Query /TN WeatherPipeline /V /FO LIST
 ```
 
 On Linux you can use Cron instead:
@@ -583,10 +604,16 @@ python src/main.py --all-raw             # reprocess the full raw history
 
 ### Step 9: Schedule daily runs
 
-On Windows, register `run_pipeline.bat` with Task Scheduler:
+On Windows, register the daily 08:30 task so Task Scheduler runs:
 
-```bat
-schtasks /Create /SC DAILY /ST 07:00 /TN WeatherPipeline /TR "\"%CD%\run_pipeline.bat\""
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\automated-weather-data-pipeline\scripts\run_pipeline_task.ps1"
+```
+
+Then verify with:
+
+```powershell
+schtasks /Query /TN WeatherPipeline /V /FO LIST
 ```
 
 On Linux, use Cron instead:
