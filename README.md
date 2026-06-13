@@ -25,6 +25,7 @@ The main objectives of this project are:
 - Store the original Open-Meteo API response as raw JSON files.
 - Clean, normalize, and transform weather data using Python.
 - Load processed data into PostgreSQL.
+- Run data quality checks before loading data into PostgreSQL.
 - Design a simple analytical data model using fact and dimension tables.
 - Create SQL marts for daily and weekly weather analysis.
 - Visualize weather trends using Power BI.
@@ -42,6 +43,8 @@ Python Ingestion
 Raw JSON Storage
     |
 Data Cleaning & Transformation
+    |
+Data Quality Checks
     |
 PostgreSQL Staging Table
     |
@@ -74,6 +77,7 @@ Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 | Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
 | Automation | Windows Task Scheduler (`scripts/run_pipeline_task.ps1`); Linux Cron as an alternative |
+| Testing / CI | pytest, GitHub Actions |
 | Environment Management | python-dotenv, virtual environment (`.venv` / `venv` / `uv`) |
 
 ---
@@ -470,7 +474,64 @@ loading into PostgreSQL only happens with `--load`.
 
 ---
 
-## 12. Environment Variables
+## 12. Data Quality, Backfill, and Tests
+
+Before loading cleaned data into PostgreSQL, the pipeline validates the batch with
+`src/data_quality.py`.
+
+Current checks include:
+
+- Required dashboard/staging columns are present.
+- All configured 34 cities are present for each observation date.
+- `humidity` and `cloud_cover` are between 0 and 100.
+- `temperature` is within a realistic range.
+- `precipitation`, `rain`, `wind_speed`, and `wind_gusts` are non-negative.
+- `(city, observation_time)` rows are not duplicated.
+
+Historical backfill is available through the Open-Meteo Archive API:
+
+```bash
+python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
+python src/main.py --skip-extract --all-raw --load
+```
+
+The verified local backfill run wrote 1,020 raw files for 34 cities over 30 days,
+then reprocessed 1,122 total raw files across 33 observation dates. Re-running the
+same load kept `fact_weather_observation` stable because the star-schema load uses
+`ON CONFLICT DO NOTHING`.
+
+Run automated tests:
+
+```bash
+pytest
+```
+
+The test suite covers:
+
+- CLI guard for invalid `--extract-only --load` usage.
+- Raw JSON to cleaned CSV transformation.
+- Data quality pass/fail cases for coverage, humidity, and duplicate rows.
+
+GitHub Actions runs the same tests on push and pull request via `.github/workflows/ci.yml`.
+
+You can also generate a local HTML visual report from raw history:
+
+```bash
+python scripts/generate_weather_visual_report.py
+```
+
+This writes:
+
+```text
+reports/weather_snapshot.html
+reports/weather_snapshot_latest.html
+```
+
+These report files are local artifacts and are ignored by Git.
+
+---
+
+## 13. Environment Variables
 
 Open-Meteo does not require an API key for this workflow, so the `.env` file should focus on the API base URL, timezone, and PostgreSQL credentials.
 
@@ -491,16 +552,17 @@ The `.env` file should not be committed to GitHub.
 
 ---
 
-## 13. Requirements
+## 14. Requirements
 
 Example `requirements.txt`:
 
 ```text
 requests
+python-dotenv
 pandas
 psycopg2-binary
 SQLAlchemy
-python-dotenv
+pytest
 ```
 
 Install dependencies:
@@ -511,7 +573,7 @@ pip install -r requirements.txt
 
 ---
 
-## 14. How to Run
+## 15. How to Run
 
 ### Step 1: Clone the repository
 
@@ -600,6 +662,8 @@ python src/main.py                       # extract + transform only (no DB)
 python src/main.py --skip-extract --load # re-transform existing raw, then load
 python src/main.py --date 2026-06-10     # transform one date partition
 python src/main.py --all-raw             # reprocess the full raw history
+python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
+pytest
 ```
 
 ### Step 9: Schedule daily runs
@@ -624,20 +688,22 @@ On Linux, use Cron instead:
 
 ---
 
-## 15. Expected Output
+## 16. Expected Output
 
 After the pipeline runs successfully, the system should produce:
 
 - Raw Open-Meteo JSON files stored by date and city.
 - Cleaned weather data loaded into PostgreSQL.
+- Data quality validation before the staging load.
 - Fact and dimension tables for analytical querying.
 - SQL mart table or view for dashboard reporting.
-- Power BI dashboard showing weather trends and metrics.
+- Power BI-ready marts and optional local HTML visual reports.
 - Automated daily execution through Windows Task Scheduler (or Linux Cron).
+- Automated test checks through pytest and GitHub Actions CI.
 
 ---
 
-## 16. Future Improvements
+## 17. Future Improvements
 
 Possible improvements for future versions:
 
@@ -645,17 +711,16 @@ Possible improvements for future versions:
 - Store raw JSON and cleaned data in Amazon S3 or MinIO.
 - Save cleaned data as Parquet files.
 - Use dbt for data modelling and testing.
-- Add data quality checks.
-- Add Open-Meteo historical weather backfill.
+- Expand data quality checks with Great Expectations or Pandera if the project grows.
+- Build and save a real Power BI `.pbix` dashboard from the PostgreSQL marts.
 - Deploy PostgreSQL on AWS RDS.
 - Build a Docker-based development environment.
-- Add CI/CD using GitHub Actions.
 - Add forecasting models for temperature or rainfall prediction.
 - Track machine learning experiments with MLflow.
 
 ---
 
-## 17. Skills Demonstrated
+## 18. Skills Demonstrated
 
 This project demonstrates the following Data Engineering skills:
 
@@ -665,9 +730,12 @@ This project demonstrates the following Data Engineering skills:
 - Raw data storage
 - Python data transformation
 - PostgreSQL database loading
+- Data quality validation
 - SQL data modelling
 - Star schema design
 - Fact and dimension table design
+- Historical backfill
+- Automated testing and CI
 - SQL analytics
 - Dashboard design
 - Pipeline automation

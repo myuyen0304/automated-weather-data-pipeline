@@ -18,6 +18,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from config import CLEANED_DATA_DIR, SQL_DIR, get_db_url
+from data_quality import validate_weather_observations
 
 
 STAGING_TABLE = "stg_weather_observations"
@@ -96,6 +97,13 @@ def load_cleaned_to_staging(
 
     # Chỉ giữ các cột thuộc bảng staging, theo đúng thứ tự.
     df = df[STAGING_COLUMNS]
+    quality_result = validate_weather_observations(df)
+    print(
+        "Data quality checks passed: "
+        f"{quality_result.row_count} rows, "
+        f"{quality_result.observation_dates} observation date(s), "
+        f"{quality_result.expected_city_count} expected cities"
+    )
 
     # Staging là buffer cho batch HIỆN TẠI: xóa sạch trước khi nạp để không
     # tích lũy dữ liệu cũ qua nhiều lần chạy. Star schema vẫn an toàn vì script
