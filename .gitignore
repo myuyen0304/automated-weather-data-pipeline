@@ -12,3 +12,5 @@ logs/
 *.pbix
 reports/
 
+# Local collaboration notes and private project study docs.
+docs/
