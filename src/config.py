@@ -22,7 +22,7 @@ OPEN_METEO_BASE_URL = os.getenv(
 WEATHER_TIMEZONE = os.getenv("WEATHER_TIMEZONE", "Asia/Ho_Chi_Minh")
 
 # --- PostgreSQL connection (khớp với docker-compose.yml và .env.example) ---
-DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "weather_db")
 DB_USER = os.getenv("DB_USER", "postgres")
@@ -32,7 +32,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
 def get_db_url() -> str:
     """Chuỗi kết nối SQLAlchemy cho PostgreSQL (dùng driver psycopg2).
 
-    Ví dụ: postgresql+psycopg2://postgres:postgres@localhost:5432/weather_db
+    Ví dụ: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/weather_db
     """
     return (
         f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}"

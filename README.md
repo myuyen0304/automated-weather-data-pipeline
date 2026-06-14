@@ -427,8 +427,8 @@ The pipeline is automated on Windows with **Task Scheduler** running
 interpreter in this order: `.venv` → `venv` → `uv run`. (`run_pipeline.bat` is an equivalent
 manual wrapper for running the same pipeline by hand.)
 
-The live task `WeatherPipeline` runs daily at **08:30**. Register or update it by pointing Task
-Scheduler at `powershell.exe` and passing the script path as an argument:
+The intended local task is `WeatherPipeline`, scheduled daily at **08:30**. Register or update it
+by pointing Task Scheduler at `powershell.exe` and passing the script path as an argument:
 
 ```powershell
 $action = New-ScheduledTaskAction `
@@ -450,6 +450,9 @@ Verify it with:
 ```powershell
 schtasks /Query /TN WeatherPipeline /V /FO LIST
 ```
+
+Only claim the scheduler is currently active after verifying `WeatherPipeline` in Task Scheduler
+GUI/PowerShell and checking `logs\pipeline.log` after a scheduled run.
 
 On Linux you can use Cron instead:
 
@@ -541,7 +544,7 @@ Example `.env.example`:
 OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
 WEATHER_TIMEZONE=Asia/Ho_Chi_Minh
 
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=weather_db
 DB_USER=postgres

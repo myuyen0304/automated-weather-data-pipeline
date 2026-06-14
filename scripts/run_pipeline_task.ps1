@@ -74,13 +74,81 @@ function Wait-DockerEngine {
     return $false
 }
 
+function Test-TcpPort {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$HostName,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $async = $client.BeginConnect($HostName, $Port, $null, $null)
+        if (-not $async.AsyncWaitHandle.WaitOne(2000, $false)) {
+            return $false
+        }
+
+        $client.EndConnect($async)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $client.Close()
+    }
+}
+
+function Wait-PostgresConnection {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$HostName,
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+        if (Test-TcpPort -HostName $HostName -Port $Port) {
+            Write-PipelineLog "PostgreSQL host port san sang: ${HostName}:${Port}"
+            return $true
+        }
+
+        Write-PipelineLog "Cho PostgreSQL host port ${HostName}:${Port}... attempt=$attempt/12"
+        Start-Sleep -Seconds 5
+    }
+
+    Write-PipelineLog "PostgreSQL healthy nhung host port ${HostName}:${Port} chua san sang. Dung pipeline."
+    return $false
+}
+
 try {
     Set-Location $ProjectRoot
     Write-PipelineLog "Bat dau pipeline tu Task Scheduler PowerShell"
     Write-PipelineLog "Docker CLI: $DockerExe"
 
+    if ([string]::IsNullOrWhiteSpace($env:DB_HOST) -or $env:DB_HOST -eq "localhost") {
+        $env:DB_HOST = "127.0.0.1"
+    }
+    if ([string]::IsNullOrWhiteSpace($env:DB_PORT)) {
+        $env:DB_PORT = "5432"
+    }
+    Write-PipelineLog "DB host cho scheduled run: $env:DB_HOST"
+
     if (-not (Wait-DockerEngine)) {
         exit 1
+    }
+
+    $venvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+    $legacyVenvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+    $pipelinePython = ""
+    [string[]]$pipelinePythonPrefixArguments = @()
+
+    if (Test-Path $venvPython) {
+        $pipelinePython = $venvPython
+    } elseif (Test-Path $legacyVenvPython) {
+        $pipelinePython = $legacyVenvPython
+    } else {
+        $pipelinePython = "uv"
+        $pipelinePythonPrefixArguments = @("--cache-dir", ".uv-cache", "run", "python")
     }
 
     Write-PipelineLog "Kiem tra PostgreSQL Docker container"
@@ -113,18 +181,13 @@ try {
         exit 1
     }
 
-    Write-PipelineLog "PostgreSQL healthy, bat dau chay ETL"
+    Write-PipelineLog "PostgreSQL healthy, kiem tra host port truoc khi chay ETL"
 
-    $venvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
-    $legacyVenvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
-
-    if (Test-Path $venvPython) {
-        $pipelineExit = Invoke-LoggedCommand -FilePath $venvPython -Arguments @("src\main.py", "--load")
-    } elseif (Test-Path $legacyVenvPython) {
-        $pipelineExit = Invoke-LoggedCommand -FilePath $legacyVenvPython -Arguments @("src\main.py", "--load")
-    } else {
-        $pipelineExit = Invoke-LoggedCommand -FilePath "uv" -Arguments @("--cache-dir", ".uv-cache", "run", "python", "src\main.py", "--load")
+    if (-not (Wait-PostgresConnection -HostName $env:DB_HOST -Port ([int]$env:DB_PORT))) {
+        exit 1
     }
+
+    $pipelineExit = Invoke-LoggedCommand -FilePath $pipelinePython -Arguments ($pipelinePythonPrefixArguments + @("src\main.py", "--load"))
 
     Write-PipelineLog "Ket thuc pipeline (exit=$pipelineExit)"
     exit $pipelineExit
