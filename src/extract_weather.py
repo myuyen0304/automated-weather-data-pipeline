@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from datetime import datetime
@@ -87,10 +88,16 @@ def save_raw_weather_response(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{slugify_city(city_config['city'])}.json"
-    output_path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    temp_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+    try:
+        temp_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        temp_path.replace(output_path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
     return output_path
 
 

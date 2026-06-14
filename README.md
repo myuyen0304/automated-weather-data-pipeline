@@ -76,7 +76,8 @@ Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 | Analytics Layer | SQL views / mart tables |
 | Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
-| Automation | Windows Task Scheduler (`scripts/run_pipeline_task.ps1`); Linux Cron as an alternative |
+| Orchestration | Apache Airflow (`docker-compose.airflow.yml`, `dags/`) |
+| Automation | Airflow DAG; Windows Task Scheduler (`scripts/run_pipeline_task.ps1`) as a simple local alternative |
 | Testing / CI | pytest, GitHub Actions |
 | Environment Management | python-dotenv, virtual environment (`.venv` / `venv` / `uv`) |
 
@@ -160,10 +161,17 @@ automated-weather-data-pipeline/
 │   ├── build_cities_csv.py
 │   └── run_pipeline_task.ps1            # Windows Task Scheduler entry point (PowerShell)
 |
+├── dags/
+│   ├── weather_daily_pipeline.py        # Airflow daily ETL DAG
+│   └── weather_archive_backfill.py      # Airflow manual archive backfill DAG
+|
 ├── images/                             # architecture diagram
 |
 ├── docker-compose.yml                  # local PostgreSQL (postgres:16)
+├── docker-compose.airflow.yml          # local Airflow orchestration stack
+├── Dockerfile.airflow                  # Airflow image with project dependencies
 ├── run_pipeline.bat                    # manual / alternative pipeline wrapper
+├── AIRFLOW.md
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -419,6 +427,58 @@ PostgreSQL -> mart_daily_weather_summary -> Power BI
 ---
 
 ## 11. Automation
+
+### Airflow orchestration
+
+The recommended orchestration upgrade is Apache Airflow. The repo includes:
+
+```text
+docker-compose.airflow.yml
+Dockerfile.airflow
+dags/weather_daily_pipeline.py
+dags/weather_archive_backfill.py
+AIRFLOW.md
+```
+
+Airflow provides DAG-based scheduling, task retries, per-task logs, manual backfill,
+and a UI for portfolio/interview demos.
+
+Start the existing weather PostgreSQL database:
+
+```powershell
+docker compose up -d
+```
+
+Initialize and start Airflow:
+
+```powershell
+docker compose -f docker-compose.airflow.yml up airflow-init
+docker compose -f docker-compose.airflow.yml up -d
+```
+
+Open:
+
+```text
+http://localhost:8080
+```
+
+Login:
+
+```text
+Username: airflow
+Password: airflow
+```
+
+Main DAGs:
+
+| DAG | Schedule | Purpose |
+|---|---|---|
+| `weather_daily_pipeline` | Daily 08:30 Asia/Ho_Chi_Minh | Current Open-Meteo ETL into PostgreSQL marts |
+| `weather_archive_backfill` | Manual trigger | Archive API backfill, then reload all raw history |
+
+See `AIRFLOW.md` for the full runbook.
+
+### Windows Task Scheduler alternative
 
 The pipeline is automated on Windows with **Task Scheduler** running
 `scripts\run_pipeline_task.ps1`, which starts PostgreSQL with `docker compose up -d`, waits for
@@ -710,14 +770,13 @@ After the pipeline runs successfully, the system should produce:
 
 Possible improvements for future versions:
 
-- Replace Cron job with Apache Airflow.
 - Store raw JSON and cleaned data in Amazon S3 or MinIO.
 - Save cleaned data as Parquet files.
 - Use dbt for data modelling and testing.
 - Expand data quality checks with Great Expectations or Pandera if the project grows.
 - Build and save a real Power BI `.pbix` dashboard from the PostgreSQL marts.
 - Deploy PostgreSQL on AWS RDS.
-- Build a Docker-based development environment.
+- Deploy Airflow on a small cloud VM or a managed Airflow platform.
 - Add forecasting models for temperature or rainfall prediction.
 - Track machine learning experiments with MLflow.
 
@@ -738,6 +797,7 @@ This project demonstrates the following Data Engineering skills:
 - Star schema design
 - Fact and dimension table design
 - Historical backfill
+- Airflow DAG orchestration
 - Automated testing and CI
 - SQL analytics
 - Dashboard design
