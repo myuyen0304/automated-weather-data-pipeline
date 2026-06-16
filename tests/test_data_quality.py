@@ -37,12 +37,52 @@ def _valid_weather_frame() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _hourly_weather_frame() -> pd.DataFrame:
+    """One day of 24 hourly observations for every city (the new grain)."""
+    rows = []
+    for city in CITIES:
+        for hour in range(24):
+            rows.append(
+                {
+                    "city": city["city"],
+                    "country": city["country"],
+                    "latitude": city["latitude"],
+                    "longitude": city["longitude"],
+                    "observation_time": f"2026-06-13T{hour:02d}:00",
+                    "temperature": 24.0 + hour * 0.4,
+                    "humidity": 75,
+                    "apparent_temperature": 34.0,
+                    "pressure_msl": 1008.0,
+                    "surface_pressure": 1005.0,
+                    "wind_speed": 8.5,
+                    "wind_direction": 180,
+                    "wind_gusts": 18.0,
+                    "precipitation": 0.0,
+                    "rain": 0.0,
+                    "cloud_cover": 65,
+                    "weather_code": 3,
+                    "weather_condition": "Overcast",
+                    "is_day": 6 <= hour < 18,
+                    "inserted_at": "2026-06-13T23:59:00",
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def test_validate_weather_observations_accepts_complete_batch() -> None:
     result = validate_weather_observations(_valid_weather_frame())
 
     assert result.row_count == len(CITIES)
     assert result.observation_dates == 1
     assert result.expected_city_count == len(CITIES)
+
+
+def test_validate_weather_observations_accepts_hourly_batch() -> None:
+    result = validate_weather_observations(_hourly_weather_frame())
+
+    # 24 distinct hours per city, one date -> no duplicate, full coverage.
+    assert result.row_count == len(CITIES) * 24
+    assert result.observation_dates == 1
 
 
 def test_validate_weather_observations_rejects_missing_city() -> None:
