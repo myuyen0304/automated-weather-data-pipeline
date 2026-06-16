@@ -28,16 +28,79 @@ def slugify_city(city: str) -> str:
 
 
 def build_open_meteo_params(city_config: dict[str, Any]) -> dict[str, Any]:
+    # Lấy block "hourly" (24 mốc giờ/ngày) thay vì "current" (1 snapshot) để mỗi
+    # ngày có đủ biên độ nhiệt cho mart MAX/MIN/AVG. forecast_days=1 = ngày hôm nay.
     return {
         "latitude": city_config["latitude"],
         "longitude": city_config["longitude"],
-        "current": ",".join(CURRENT_WEATHER_FIELDS),
+        "hourly": ",".join(CURRENT_WEATHER_FIELDS),
         "timezone": WEATHER_TIMEZONE,
         "forecast_days": 1,
     }
 
 
-def fetch_current_weather(city_config: dict[str, Any]) -> dict[str, Any]:
+def derive_is_day(hour_local: int, api_value: object | None = None) -> int:
+    """is_day cho một mốc giờ. Dùng giá trị API nếu có, không thì suy theo giờ.
+
+    Forecast hourly có sẵn is_day; Archive hourly thì không, nên fallback heuristic
+    ban ngày 06:00-18:00 (Asia/Ho_Chi_Minh không có DST, đủ chính xác cho dashboard).
+    """
+    if api_value is not None:
+        return int(api_value)
+    return 1 if 6 <= hour_local < 18 else 0
+
+
+def build_hourly_payloads(
+    response: dict[str, Any],
+    fields: list[str],
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> tuple[list[tuple[str, str, dict[str, Any]]], list[str]]:
+    """Tách block "hourly" thành nhiều payload shape "current" (mỗi giờ một bản).
+
+    Mỗi payload giống hệt output forecast cũ ({latitude, longitude, current:{...}})
+    nên transform/load chạy lại không cần sửa. Trả (payloads, skipped_hours) với
+    payloads = list các (day 'YYYY-MM-DD', hour 'HH', payload). Bỏ giờ thiếu nhiệt độ.
+    """
+    hourly = response["hourly"]
+    times = hourly["time"]
+    is_day_series = hourly.get("is_day")
+
+    payloads: list[tuple[str, str, dict[str, Any]]] = []
+    skipped_hours: list[str] = []
+
+    for idx, time_str in enumerate(times):
+        day = time_str[:10]
+        if start_date is not None and day < start_date:
+            continue
+        if end_date is not None and day > end_date:
+            continue
+
+        if hourly.get("temperature_2m", [None] * len(times))[idx] is None:
+            skipped_hours.append(time_str)
+            continue
+
+        current = {
+            field: hourly[field][idx]
+            for field in fields
+            if field in hourly
+        }
+        current["time"] = time_str
+        hour_local = int(time_str[11:13])
+        api_is_day = is_day_series[idx] if is_day_series is not None else None
+        current["is_day"] = derive_is_day(hour_local, api_is_day)
+
+        payload = {
+            "latitude": response.get("latitude"),
+            "longitude": response.get("longitude"),
+            "current": current,
+        }
+        payloads.append((day, f"{hour_local:02d}", payload))
+
+    return payloads, skipped_hours
+
+
+def fetch_forecast_hourly(city_config: dict[str, Any]) -> dict[str, Any]:
     session = requests.Session()
     session.trust_env = False
 
@@ -80,11 +143,15 @@ def save_raw_weather_response(
     city_config: dict[str, Any],
     payload: dict[str, Any],
     run_date: str | None = None,
+    run_hour: str | None = None,
 ) -> Path:
     if run_date is None:
         run_date = datetime.now(ZoneInfo(WEATHER_TIMEZONE)).date().isoformat()
 
+    # Layout hourly: date=<day>/hour=HH/<city>.json để 24 file/ngày không ghi đè nhau.
     output_dir = RAW_DATA_DIR / f"date={run_date}"
+    if run_hour is not None:
+        output_dir = output_dir / f"hour={run_hour}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{slugify_city(city_config['city'])}.json"
@@ -101,15 +168,22 @@ def save_raw_weather_response(
     return output_path
 
 
-def extract_city(city_config: dict[str, Any]) -> Path:
-    payload = fetch_current_weather(city_config)
-    return save_raw_weather_response(city_config, payload)
+def extract_city(city_config: dict[str, Any]) -> list[Path]:
+    """Fetch hourly forecast cho 1 city và ghi mỗi giờ thành 1 raw file."""
+    response = fetch_forecast_hourly(city_config)
+    payloads, _skipped = build_hourly_payloads(response, CURRENT_WEATHER_FIELDS)
+    return [
+        save_raw_weather_response(city_config, payload, run_date=day, run_hour=hour)
+        for day, hour, payload in payloads
+    ]
 
 
 def extract_all_cities() -> list[Path]:
-    output_paths = []
+    output_paths: list[Path] = []
     for city_config in CITIES:
-        output_path = extract_city(city_config)
-        output_paths.append(output_path)
-        print(f"Saved raw weather JSON for {city_config['city']}: {output_path}")
+        city_paths = extract_city(city_config)
+        output_paths.extend(city_paths)
+        print(
+            f"Saved {len(city_paths)} hourly raw file(s) for {city_config['city']}"
+        )
     return output_paths
