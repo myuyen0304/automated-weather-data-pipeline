@@ -10,7 +10,7 @@ This project uses Open-Meteo as the only weather data source. The selected endpo
 https://api.open-meteo.com/v1/forecast
 ```
 
-Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports current weather variables through latitude and longitude, and does not require an API key for the basic forecast/current-weather workflow used here.
+Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports hourly forecast variables through latitude and longitude, and does not require an API key for the basic forecast/hourly workflow used here.
 
 The pipeline is automated with Windows Task Scheduler (via `scripts/run_pipeline_task.ps1`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
 
@@ -106,10 +106,13 @@ First rows of `data/cities.csv`:
 Example request for Ho Chi Minh City:
 
 ```text
-https://api.open-meteo.com/v1/forecast?latitude=10.823&longitude=106.6296&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&timezone=Asia/Ho_Chi_Minh&forecast_days=1
+https://api.open-meteo.com/v1/forecast?latitude=10.823&longitude=106.6296&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&timezone=Asia/Ho_Chi_Minh&forecast_days=1
 ```
 
-The pipeline focuses on the `current` weather block. Useful Open-Meteo variables include:
+The pipeline requests these variables from the Open-Meteo `hourly` block (the forecast
+extractor uses `hourly=...&forecast_days=1`; the archive backfill uses `hourly=...` over a
+date range) and splits each returned hour into its own `current`-shaped record. Useful
+Open-Meteo variables include:
 
 | Open-Meteo field | Meaning |
 |---|---|
@@ -139,7 +142,7 @@ automated-weather-data-pipeline/
 │   ├── cities.csv                       # 34 provinces/cities (CSV-driven config)
 │   ├── raw/
 │   │   └── open-meteo/
-│   │       └── date=YYYY-MM-DD/<city>.json
+│   │       └── date=YYYY-MM-DD/hour=HH/<city>.json
 │   └── cleaned/
 │       └── weather_observations.csv     # transformed output
 |
@@ -187,7 +190,12 @@ automated-weather-data-pipeline/
 
 The extraction step calls Open-Meteo using Python and saves the raw JSON response into the local raw data folder.
 
-Raw files are stored by date and city.
+The pipeline collects the Open-Meteo **hourly** block (24 observations per day) rather than a
+single daily snapshot, so each city/day has a real temperature range for the daily mart. Every
+hour is written as its own `current`-shaped JSON file, partitioned by date and hour so multiple
+runs never overwrite each other.
+
+Raw files are stored by date, hour, and city.
 
 Example raw storage structure:
 
@@ -196,9 +204,14 @@ data/
 └── raw/
     └── open-meteo/
         └── date=2026-06-10/
-            ├── ho_chi_minh_city.json
-            ├── hanoi.json
-            └── da_nang.json
+            ├── hour=00/
+            │   ├── ho_chi_minh_city.json
+            │   ├── hanoi.json
+            │   └── da_nang.json
+            ├── hour=01/
+            │   └── ...
+            └── hour=23/
+                └── ...
 ```
 
 The purpose of storing raw JSON files is to preserve the original API response. This allows the pipeline to reprocess historical data if the transformation logic changes later.
@@ -558,10 +571,11 @@ python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
 python src/main.py --skip-extract --all-raw --load
 ```
 
-The verified local backfill run wrote 1,020 raw files for 34 cities over 30 days,
-then reprocessed 1,122 total raw files across 33 observation dates. Re-running the
-same load kept `fact_weather_observation` stable because the star-schema load uses
-`ON CONFLICT DO NOTHING`.
+The hourly backfill writes one raw file per city-hour. A complete day is expected to
+produce `34 cities * 24 hours = 816` raw records, and a complete 30-day backfill is
+about `24,480` raw records before any skipped null hours. Re-running the same load
+keeps `fact_weather_observation` stable for already loaded hours because the
+star-schema load uses `ON CONFLICT DO NOTHING` on `(location_id, observation_time)`.
 
 Run automated tests:
 
