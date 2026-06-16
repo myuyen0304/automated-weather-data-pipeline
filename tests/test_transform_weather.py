@@ -60,3 +60,58 @@ def _assert_transform_raw_files_normalizes_open_meteo_payload(test_dir) -> None:
     assert df.loc[0, "humidity"] == 72
     assert df.loc[0, "weather_condition"] == "Overcast"
     assert str(raw_path) in df.loc[0, "source_file"]
+
+
+def _write_hourly_raw(raw_dir, city, day: str, hour: str, temperature: float) -> None:
+    hour_dir = raw_dir / f"date={day}" / f"hour={hour}"
+    hour_dir.mkdir(parents=True, exist_ok=True)
+    (hour_dir / f"{slugify_city(city['city'])}.json").write_text(
+        json.dumps(
+            {
+                "latitude": city["latitude"],
+                "longitude": city["longitude"],
+                "current": {
+                    "time": f"{day}T{hour}:00",
+                    "temperature_2m": temperature,
+                    "relative_humidity_2m": 70,
+                    "apparent_temperature": temperature + 2,
+                    "precipitation": 0.0,
+                    "rain": 0.0,
+                    "weather_code": 0,
+                    "cloud_cover": 10,
+                    "pressure_msl": 1010.0,
+                    "surface_pressure": 1007.0,
+                    "wind_speed_10m": 6.0,
+                    "wind_direction_10m": 90,
+                    "wind_gusts_10m": 12.0,
+                    "is_day": 1 if 6 <= int(hour) < 18 else 0,
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_transform_reads_nested_hour_partitions() -> None:
+    test_dir = PROJECT_ROOT / ".test-tmp" / f"transform-hourly-{uuid4().hex}"
+    raw_dir = test_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        city = CITIES[0]
+        _write_hourly_raw(raw_dir, city, "2026-06-13", "00", 25.0)
+        _write_hourly_raw(raw_dir, city, "2026-06-13", "14", 34.0)
+        output_path = test_dir / "weather_observations.csv"
+
+        transform_raw_files(
+            raw_dir=raw_dir, include_history=True, output_path=output_path
+        )
+
+        df = pd.read_csv(output_path)
+        # Both hourly files under date=/hour=HH/ are discovered via rglob.
+        assert len(df) == 2
+        assert df["observation_time"].nunique() == 2
+        assert df["temperature"].min() == 25.0
+        assert df["temperature"].max() == 34.0
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
