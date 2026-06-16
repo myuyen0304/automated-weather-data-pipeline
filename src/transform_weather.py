@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -83,9 +85,11 @@ def list_raw_weather_files(
     run_date: str | None = None,
     include_history: bool = False,
 ) -> list[Path]:
+    # rglob để thấy cả layout hourly lồng nhau date=<day>/hour=HH/<city>.json
+    # lẫn layout phẳng cũ date=<day>/<city>.json.
     if run_date is not None:
         target_dir = raw_dir / f"date={run_date}"
-        raw_files = sorted(target_dir.glob("*.json"))
+        raw_files = sorted(target_dir.rglob("*.json"))
         if not raw_files:
             raise FileNotFoundError(f"No raw JSON files found under {target_dir}")
         return raw_files
@@ -101,7 +105,7 @@ def list_raw_weather_files(
         raise FileNotFoundError(f"No date partitions found under {raw_dir}")
 
     latest_dir = date_dirs[-1]
-    raw_files = sorted(latest_dir.glob("*.json"))
+    raw_files = sorted(latest_dir.rglob("*.json"))
     if not raw_files:
         raise FileNotFoundError(f"No raw JSON files found under {latest_dir}")
     return raw_files
@@ -120,7 +124,14 @@ def transform_raw_files(
         else list_raw_weather_files(raw_dir, run_date, include_history)
     )
 
-    records = [normalize_weather_record(raw_path) for raw_path in selected_raw_files]
+    # Đọc file là nghẽn I/O (mở từng JSON nhỏ trên Windows rất chậm), nên đọc song
+    # song bằng thread pool. executor.map giữ nguyên thứ tự input để output ổn định.
+    if len(selected_raw_files) > 1:
+        max_workers = min(32, (os.cpu_count() or 4) * 4)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            records = list(executor.map(normalize_weather_record, selected_raw_files))
+    else:
+        records = [normalize_weather_record(raw_path) for raw_path in selected_raw_files]
     df = pd.DataFrame(records)
     df["observation_time"] = pd.to_datetime(df["observation_time"])
     df["inserted_at"] = pd.to_datetime(df["inserted_at"])
