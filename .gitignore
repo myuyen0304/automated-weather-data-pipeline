@@ -13,5 +13,8 @@ logs/
 reports/
 .test-tmp/
 
+# Airflow SimpleAuthManager plaintext password file.
+airflow_simple_auth_passwords.json
+
 # Local collaboration notes and private project study docs.
 docs/
