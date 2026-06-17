@@ -73,3 +73,35 @@ def test_derive_is_day_prefers_api_value() -> None:
     assert derive_is_day(12) == 1
     assert derive_is_day(0, api_value=1) == 1  # API value overrides the heuristic
     assert derive_is_day(12, api_value=0) == 0
+
+
+def test_derive_is_day_uses_sunrise_sunset_window() -> None:
+    window = ("2026-05-10T05:24", "2026-05-10T18:30")
+
+    # Within the real solar window -> day, even for an hour the 06-18h heuristic
+    # would call night.
+    assert derive_is_day(5, time_str="2026-05-10T05:30", sun_window=window) == 1
+    assert derive_is_day(18, time_str="2026-05-10T18:00", sun_window=window) == 1
+    # Outside the window -> night, including an hour the heuristic would call day.
+    assert derive_is_day(5, time_str="2026-05-10T05:00", sun_window=window) == 0
+    assert derive_is_day(18, time_str="2026-05-10T18:45", sun_window=window) == 0
+
+
+def test_build_hourly_payloads_uses_daily_sun_window() -> None:
+    response = _archive_response()
+    response["daily"] = {
+        "time": ["2026-05-10"],
+        "sunrise": ["2026-05-10T05:24"],
+        "sunset": ["2026-05-10T18:30"],
+    }
+
+    payloads, _ = build_hourly_payloads(
+        response,
+        ["temperature_2m"],
+        start_date="2026-05-10",
+        end_date="2026-05-10",
+    )
+
+    by_hour = {hour: payload["current"]["is_day"] for _, hour, payload in payloads}
+    assert by_hour["00"] == 0  # before sunrise
+    assert by_hour["12"] == 1  # between sunrise and sunset

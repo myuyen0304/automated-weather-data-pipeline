@@ -16,9 +16,11 @@ from extract_weather import build_hourly_payloads, save_raw_weather_response
 # Archive API trả mảng "hourly" thay vì block "current" của Forecast API.
 ARCHIVE_BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
-# is_day KHÔNG có trong archive hourly -> không request; build_hourly_payloads tự
-# suy is_day theo giờ địa phương (derive_is_day) cho cả 24 giờ.
+# is_day KHÔNG có trong archive hourly -> không request. Thay vào đó lấy
+# daily=sunrise,sunset để build_hourly_payloads suy is_day theo khung mặt trời
+# thực tế của từng ngày (chính xác hơn mốc cứng 06-18h).
 HOURLY_FIELDS = [field for field in CURRENT_WEATHER_FIELDS if field != "is_day"]
+DAILY_FIELDS = ["sunrise", "sunset"]
 
 # Độ trễ ERA5: dữ liệu archive thường trễ ~5 ngày so với hiện tại.
 ERA5_DELAY_DAYS = 5
@@ -43,6 +45,7 @@ def fetch_archive(
         "start_date": start_date,
         "end_date": end_date,
         "hourly": ",".join(HOURLY_FIELDS),
+        "daily": ",".join(DAILY_FIELDS),
         "timezone": WEATHER_TIMEZONE,
     }
 

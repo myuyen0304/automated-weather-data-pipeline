@@ -111,7 +111,9 @@ https://archive-api.open-meteo.com/v1/archive?latitude=10.823&longitude=106.6296
 
 The pipeline requests these variables from the Open-Meteo `hourly` block and splits each
 returned hour into its own `current`-shaped record. Archive responses do not include
-`is_day`, so the pipeline derives it from the local hour. Useful Open-Meteo variables include:
+`is_day`, so the Archive request also asks for `daily=sunrise,sunset` and derives `is_day`
+by comparing each hour against that day's real sunrise/sunset (falling back to a
+06:00–18:00 heuristic only if the sun times are missing). Useful Open-Meteo variables include:
 
 | Open-Meteo field | Meaning |
 |---|---|

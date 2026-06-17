@@ -39,15 +39,44 @@ def build_open_meteo_params(city_config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def derive_is_day(hour_local: int, api_value: object | None = None) -> int:
-    """is_day cho một mốc giờ. Dùng giá trị API nếu có, không thì suy theo giờ.
+def derive_is_day(
+    hour_local: int,
+    api_value: object | None = None,
+    time_str: str | None = None,
+    sun_window: tuple[str, str] | None = None,
+) -> int:
+    """is_day cho một mốc giờ, theo thứ tự ưu tiên độ chính xác:
 
-    Forecast hourly có sẵn is_day; Archive hourly thì không, nên fallback heuristic
-    ban ngày 06:00-18:00 (Asia/Ho_Chi_Minh không có DST, đủ chính xác cho dashboard).
+    1. Giá trị is_day từ API (Forecast hourly có sẵn).
+    2. So mốc giờ với sunrise/sunset thực tế của ngày đó (Archive request thêm
+       daily=sunrise,sunset). sun_window = (sunrise_iso, sunset_iso) cùng timezone
+       nên so sánh chuỗi ISO cùng định dạng là đủ và đúng.
+    3. Fallback cuối: heuristic 06:00-18:00 khi không có cả hai nguồn trên.
     """
     if api_value is not None:
         return int(api_value)
+    if time_str is not None and sun_window is not None:
+        sunrise, sunset = sun_window
+        return 1 if sunrise <= time_str < sunset else 0
     return 1 if 6 <= hour_local < 18 else 0
+
+
+def build_sun_windows(daily: dict[str, Any] | None) -> dict[str, tuple[str, str]]:
+    """Map ngày -> (sunrise_iso, sunset_iso) từ block daily của Open-Meteo.
+
+    Trả dict rỗng nếu response không kèm sunrise/sunset (vd Forecast path), khi đó
+    derive_is_day tự rơi về api_value hoặc heuristic.
+    """
+    if not daily:
+        return {}
+    times = daily.get("time") or []
+    sunrises = daily.get("sunrise") or []
+    sunsets = daily.get("sunset") or []
+    return {
+        day: (sunrise, sunset)
+        for day, sunrise, sunset in zip(times, sunrises, sunsets)
+        if sunrise and sunset
+    }
 
 
 def build_hourly_payloads(
@@ -65,6 +94,9 @@ def build_hourly_payloads(
     hourly = response["hourly"]
     times = hourly["time"]
     is_day_series = hourly.get("is_day")
+    # Archive request kèm daily=sunrise,sunset -> suy is_day theo khung mặt trời
+    # thực tế của từng ngày thay vì mốc cứng 06-18h.
+    sun_by_day = build_sun_windows(response.get("daily"))
 
     payloads: list[tuple[str, str, dict[str, Any]]] = []
     skipped_hours: list[str] = []
@@ -88,7 +120,12 @@ def build_hourly_payloads(
         current["time"] = time_str
         hour_local = int(time_str[11:13])
         api_is_day = is_day_series[idx] if is_day_series is not None else None
-        current["is_day"] = derive_is_day(hour_local, api_is_day)
+        current["is_day"] = derive_is_day(
+            hour_local,
+            api_is_day,
+            time_str=time_str,
+            sun_window=sun_by_day.get(day),
+        )
 
         payload = {
             "latitude": response.get("latitude"),
