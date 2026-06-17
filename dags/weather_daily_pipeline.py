@@ -15,6 +15,7 @@ except ImportError:  # Airflow 2 fallback for local linting or older images.
 
 
 PROJECT_ROOT = Path(os.getenv("WEATHER_PROJECT_ROOT", "/opt/airflow/project"))
+ARCHIVE_DELAY_DAYS = 5
 
 
 def run_project_command(args: list[str]) -> None:
@@ -42,7 +43,7 @@ def run_project_command(args: list[str]) -> None:
 
 @dag(
     dag_id="weather_daily_pipeline",
-    description="Daily Open-Meteo weather ETL into PostgreSQL marts.",
+    description="Daily Open-Meteo Archive catch-up into PostgreSQL marts.",
     schedule="30 8 * * *",
     start_date=pendulum.datetime(2026, 1, 1, tz="Asia/Ho_Chi_Minh"),
     catchup=False,
@@ -52,7 +53,7 @@ def run_project_command(args: list[str]) -> None:
         "retries": 2,
         "retry_delay": timedelta(minutes=5),
     },
-    tags=["weather", "open-meteo", "postgres", "portfolio"],
+    tags=["weather", "archive", "open-meteo", "postgres", "portfolio"],
 )
 def weather_daily_pipeline():
     @task
@@ -60,12 +61,30 @@ def weather_daily_pipeline():
         run_project_command(["src/main.py", "--init-db"])
 
     @task
-    def extract_current_weather() -> None:
-        run_project_command(["src/main.py", "--extract-only"])
+    def resolve_archive_target_date() -> str:
+        return (
+            pendulum.now("Asia/Ho_Chi_Minh")
+            .subtract(days=ARCHIVE_DELAY_DAYS)
+            .to_date_string()
+        )
 
     @task
-    def transform_latest_raw() -> None:
-        run_project_command(["src/main.py", "--skip-extract"])
+    def backfill_archive_day(target_date: str) -> None:
+        run_project_command(
+            [
+                "src/backfill_weather.py",
+                "--start-date",
+                target_date,
+                "--end-date",
+                target_date,
+                "--sleep",
+                "0.2",
+            ]
+        )
+
+    @task
+    def transform_archive_day(target_date: str) -> None:
+        run_project_command(["src/main.py", "--skip-extract", "--date", target_date])
 
     @task
     def validate_cleaned_data() -> None:
@@ -76,12 +95,13 @@ def weather_daily_pipeline():
         run_project_command(["scripts/load_cleaned_to_postgres.py"])
 
     schema = init_schema()
-    extracted = extract_current_weather()
-    transformed = transform_latest_raw()
+    target_date = resolve_archive_target_date()
+    backfilled = backfill_archive_day(target_date)
+    transformed = transform_archive_day(target_date)
     validated = validate_cleaned_data()
     loaded = load_postgres_marts()
 
-    schema >> extracted >> transformed >> validated >> loaded
+    schema >> target_date >> backfilled >> transformed >> validated >> loaded
 
 
 weather_daily_pipeline()

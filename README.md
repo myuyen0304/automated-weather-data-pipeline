@@ -2,15 +2,15 @@
 
 ## 1. Project Overview
 
-**Automated Weather Data Pipeline** is a beginner-friendly Data Engineering project that automatically collects daily weather observations from the **Open-Meteo Forecast API**, stores raw JSON responses, transforms and cleans the data using Python, loads the result into PostgreSQL, applies SQL-based data modelling with fact and dimension tables, and builds analytical marts for Power BI dashboards.
+**Automated Weather Data Pipeline** is a beginner-friendly Data Engineering project that automatically collects verified historical hourly weather data from the **Open-Meteo Archive API**, stores raw JSON responses, transforms and cleans the data using Python, loads the result into PostgreSQL, applies SQL-based data modelling with fact and dimension tables, and builds analytical marts for Power BI dashboards.
 
-This project uses Open-Meteo as the only weather data source. The selected endpoint is:
+This project uses Open-Meteo as the only weather data source. The scheduled daily pipeline uses the Archive endpoint so each automated run loads a completed historical day instead of forecast hours for the current day:
 
 ```text
-https://api.open-meteo.com/v1/forecast
+https://archive-api.open-meteo.com/v1/archive
 ```
 
-Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports hourly forecast variables through latitude and longitude, and does not require an API key for the basic forecast/hourly workflow used here.
+Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports hourly variables through latitude and longitude, and does not require an API key for the archive workflow used here.
 
 The pipeline is automated with Windows Task Scheduler (via `scripts/run_pipeline_task.ps1`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
 
@@ -36,7 +36,7 @@ The main objectives of this project are:
 ## 3. Pipeline Architecture
 
 ```text
-Open-Meteo Forecast API
+Open-Meteo Archive API
     |
 Python Ingestion
     |
@@ -65,8 +65,8 @@ Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 
 | Layer | Technology |
 |---|---|
-| Data Source | Open-Meteo Forecast API |
-| API Endpoint | `https://api.open-meteo.com/v1/forecast` |
+| Data Source | Open-Meteo Archive API for scheduled historical loads; Forecast API for optional manual latest-data extraction |
+| API Endpoint | `https://archive-api.open-meteo.com/v1/archive` |
 | Programming Language | Python |
 | API Ingestion | requests |
 | Data Processing | pandas |
@@ -85,7 +85,7 @@ Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 
 ## 5. Data Source
 
-The project collects weather data from the Open-Meteo Forecast API.
+The scheduled pipeline collects completed historical weather data from the Open-Meteo Archive API. The repo still keeps a Forecast API extractor for optional manual latest-data runs, but scheduled daily automation uses Archive data to avoid loading future forecast hours.
 
 Open-Meteo requires geographical coordinates, so the pipeline keeps a configured list of cities with latitude and longitude.
 
@@ -103,16 +103,15 @@ First rows of `data/cities.csv`:
 | Can Tho | Vietnam | 10.0371 | 105.7883 |
 | … | … | … | … |
 
-Example request for Ho Chi Minh City:
+Example scheduled Archive request for Ho Chi Minh City:
 
 ```text
-https://api.open-meteo.com/v1/forecast?latitude=10.823&longitude=106.6296&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&timezone=Asia/Ho_Chi_Minh&forecast_days=1
+https://archive-api.open-meteo.com/v1/archive?latitude=10.823&longitude=106.6296&start_date=2026-06-11&end_date=2026-06-11&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Asia/Ho_Chi_Minh
 ```
 
-The pipeline requests these variables from the Open-Meteo `hourly` block (the forecast
-extractor uses `hourly=...&forecast_days=1`; the archive backfill uses `hourly=...` over a
-date range) and splits each returned hour into its own `current`-shaped record. Useful
-Open-Meteo variables include:
+The pipeline requests these variables from the Open-Meteo `hourly` block and splits each
+returned hour into its own `current`-shaped record. Archive responses do not include
+`is_day`, so the pipeline derives it from the local hour. Useful Open-Meteo variables include:
 
 | Open-Meteo field | Meaning |
 |---|---|
@@ -188,12 +187,13 @@ automated-weather-data-pipeline/
 
 ### 7.1 Extract
 
-The extraction step calls Open-Meteo using Python and saves the raw JSON response into the local raw data folder.
+The scheduled extraction step calls Open-Meteo Archive using Python and saves the raw JSON response into the local raw data folder.
 
-The pipeline collects the Open-Meteo **hourly** block (24 observations per day) rather than a
-single daily snapshot, so each city/day has a real temperature range for the daily mart. Every
-hour is written as its own `current`-shaped JSON file, partitioned by date and hour so multiple
-runs never overwrite each other.
+The scheduled pipeline collects the Open-Meteo **hourly Archive** block for `today - 5 days`
+in the local timezone. This delay avoids treating forecast hours as observed history and gives
+each city/day a real completed 24-hour temperature range for the daily mart. Every hour is
+written as its own `current`-shaped JSON file, partitioned by date and hour so multiple runs
+never overwrite each other incorrectly.
 
 Raw files are stored by date, hour, and city.
 
@@ -486,7 +486,7 @@ Main DAGs:
 
 | DAG | Schedule | Purpose |
 |---|---|---|
-| `weather_daily_pipeline` | Daily 08:30 Asia/Ho_Chi_Minh | Current Open-Meteo ETL into PostgreSQL marts |
+| `weather_daily_pipeline` | Daily 08:30 Asia/Ho_Chi_Minh | Archive API catch-up for `today - 5`, then PostgreSQL marts |
 | `weather_archive_backfill` | Manual trigger | Archive API backfill, then reload all raw history |
 
 See `AIRFLOW.md` for the full runbook.
@@ -495,10 +495,11 @@ See `AIRFLOW.md` for the full runbook.
 
 The pipeline is automated on Windows with **Task Scheduler** running
 `scripts\run_pipeline_task.ps1`, which starts PostgreSQL with `docker compose up -d`, waits for
-`weather_postgres` to become healthy, calls `python src\main.py --load`, and writes output to
+`weather_postgres` to become healthy, computes the safe Archive target date (`today - 5` in
+Asia/Ho_Chi_Minh), runs `src\backfill_weather.py` for that one completed day, then runs
+`src\main.py --skip-extract --date <target-date> --load`. Output is written to
 `logs\pipeline.log`. Docker Desktop/Docker engine must be running. The script auto-detects the
-interpreter in this order: `.venv` → `venv` → `uv run`. (`run_pipeline.bat` is an equivalent
-manual wrapper for running the same pipeline by hand.)
+interpreter in this order: `.venv` → `venv` → `uv run`.
 
 The intended local task is `WeatherPipeline`, scheduled daily at **08:30**. Register or update it
 by pointing Task Scheduler at `powershell.exe` and passing the script path as an argument:
@@ -530,7 +531,7 @@ GUI/PowerShell and checking `logs\pipeline.log` after a scheduled run.
 On Linux you can use Cron instead:
 
 ```bash
-0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py --load
+30 8 * * * cd /home/user/automated-weather-data-pipeline && TARGET_DATE=$(date -d "5 days ago" +\%F) && /usr/bin/python3 src/backfill_weather.py --start-date "$TARGET_DATE" --end-date "$TARGET_DATE" && /usr/bin/python3 src/main.py --skip-extract --date "$TARGET_DATE" --load
 ```
 
 ### main.py CLI flags
@@ -540,8 +541,8 @@ loading into PostgreSQL only happens with `--load`.
 
 | Flag | Effect |
 |---|---|
-| (none) | Extract from Open-Meteo, then transform the current batch to cleaned CSV |
-| `--load` | Also load cleaned data into PostgreSQL and rebuild the star schema |
+| (none) | Extract from Open-Meteo Forecast API, then transform the current batch to cleaned CSV |
+| `--load` | Also load cleaned data into PostgreSQL and rebuild the star schema; scheduled automation uses Archive first, then `--skip-extract --date <target-date> --load` |
 | `--init-db` | Create the schema (staging, dims, fact, marts), then exit |
 | `--skip-extract` | Transform existing raw JSON without calling the API |
 | `--extract-only` | Only fetch raw JSON, skip transform (cannot combine with `--load`) |
@@ -564,7 +565,7 @@ Current checks include:
 - `precipitation`, `rain`, `wind_speed`, and `wind_gusts` are non-negative.
 - `(city, observation_time)` rows are not duplicated.
 
-Historical backfill is available through the Open-Meteo Archive API:
+Historical and scheduled daily catch-up are available through the Open-Meteo Archive API:
 
 ```bash
 python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
@@ -574,8 +575,9 @@ python src/main.py --skip-extract --all-raw --load
 The hourly backfill writes one raw file per city-hour. A complete day is expected to
 produce `34 cities * 24 hours = 816` raw records, and a complete 30-day backfill is
 about `24,480` raw records before any skipped null hours. Re-running the same load
-keeps `fact_weather_observation` stable for already loaded hours because the
-star-schema load uses `ON CONFLICT DO NOTHING` on `(location_id, observation_time)`.
+does not duplicate `fact_weather_observation` rows because the star-schema load
+upserts on `(location_id, observation_time)`. If an older forecast row already exists
+for the same city-hour, a later Archive batch updates it with verified historical values.
 
 Run automated tests:
 
@@ -726,7 +728,7 @@ it loads data from staging into the star schema and runs on every `--load` batch
 
 ### Step 8: Run the pipeline manually
 
-Full run (extract → transform → load into PostgreSQL):
+Manual latest-data run (Forecast API extract → transform → load into PostgreSQL):
 
 ```bash
 python src/main.py --load
@@ -743,9 +745,9 @@ python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
 pytest
 ```
 
-### Step 9: Schedule daily runs
+### Step 9: Schedule daily Archive runs
 
-On Windows, register the daily 08:30 task so Task Scheduler runs:
+On Windows, register the daily 08:30 task so Task Scheduler runs the Archive catch-up script:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\automated-weather-data-pipeline\scripts\run_pipeline_task.ps1"
@@ -760,7 +762,7 @@ schtasks /Query /TN WeatherPipeline /V /FO LIST
 On Linux, use Cron instead:
 
 ```bash
-0 7 * * * /usr/bin/python3 /home/user/automated-weather-data-pipeline/src/main.py --load
+30 8 * * * cd /home/user/automated-weather-data-pipeline && TARGET_DATE=$(date -d "5 days ago" +\%F) && /usr/bin/python3 src/backfill_weather.py --start-date "$TARGET_DATE" --end-date "$TARGET_DATE" && /usr/bin/python3 src/main.py --skip-extract --date "$TARGET_DATE" --load
 ```
 
 ---

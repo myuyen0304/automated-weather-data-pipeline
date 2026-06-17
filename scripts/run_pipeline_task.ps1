@@ -6,6 +6,7 @@ $LogDir = Join-Path $ProjectRoot "logs"
 $LogFile = Join-Path $LogDir "pipeline.log"
 $DockerExe = "docker"
 $DockerCliPath = Join-Path $env:ProgramFiles "Docker\Docker\resources\bin\docker.exe"
+$ArchiveDelayDays = 5
 
 if (Test-Path $DockerCliPath) {
     $DockerExe = $DockerCliPath
@@ -120,6 +121,12 @@ function Wait-PostgresConnection {
     return $false
 }
 
+function Get-ArchiveTargetDate {
+    $timeZone = [System.TimeZoneInfo]::FindSystemTimeZoneById("SE Asia Standard Time")
+    $todayLocal = [System.TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, $timeZone).Date
+    return $todayLocal.AddDays(-$ArchiveDelayDays).ToString("yyyy-MM-dd")
+}
+
 try {
     Set-Location $ProjectRoot
     Write-PipelineLog "Bat dau pipeline tu Task Scheduler PowerShell"
@@ -187,7 +194,31 @@ try {
         exit 1
     }
 
-    $pipelineExit = Invoke-LoggedCommand -FilePath $pipelinePython -Arguments ($pipelinePythonPrefixArguments + @("src\main.py", "--load"))
+    $targetDate = Get-ArchiveTargetDate
+    Write-PipelineLog "PostgreSQL healthy, backfill Archive API cho ngay da chac co du lieu: $targetDate"
+
+    $backfillExit = Invoke-LoggedCommand -FilePath $pipelinePython -Arguments ($pipelinePythonPrefixArguments + @(
+        "src\backfill_weather.py",
+        "--start-date",
+        $targetDate,
+        "--end-date",
+        $targetDate,
+        "--sleep",
+        "0.2"
+    ))
+    if ($backfillExit -ne 0) {
+        Write-PipelineLog "Archive backfill that bai (exit=$backfillExit)"
+        exit $backfillExit
+    }
+
+    Write-PipelineLog "Transform/load partition Archive target_date=$targetDate"
+    $pipelineExit = Invoke-LoggedCommand -FilePath $pipelinePython -Arguments ($pipelinePythonPrefixArguments + @(
+        "src\main.py",
+        "--skip-extract",
+        "--date",
+        $targetDate,
+        "--load"
+    ))
 
     Write-PipelineLog "Ket thuc pipeline (exit=$pipelineExit)"
     exit $pipelineExit

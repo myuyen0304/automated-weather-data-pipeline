@@ -3,6 +3,8 @@
 -- Nạp dữ liệu từ bảng staging vào star schema (dim + fact).
 -- KHÁC với 01-03: script này CHẠY MỖI LẦN pipeline (sau khi staging có data).
 -- Được viết idempotent: chạy lại nhiều lần không tạo bản ghi trùng.
+-- Nếu staging chứa dữ liệu Archive cho cùng city + observation_time đã từng được
+-- load bằng forecast, fact sẽ được cập nhật để ưu tiên batch mới nhất.
 -- ============================================================================
 
 -- 1) dim_location: thêm các thành phố mới xuất hiện trong staging.
@@ -45,4 +47,20 @@ SELECT
     s.weather_code, s.weather_condition, s.is_day
 FROM stg_weather_observations s
 JOIN dim_location l ON l.city = s.city
-ON CONFLICT (location_id, observation_time) DO NOTHING;
+ON CONFLICT (location_id, observation_time) DO UPDATE SET
+    date_id = EXCLUDED.date_id,
+    temperature = EXCLUDED.temperature,
+    humidity = EXCLUDED.humidity,
+    apparent_temperature = EXCLUDED.apparent_temperature,
+    pressure_msl = EXCLUDED.pressure_msl,
+    surface_pressure = EXCLUDED.surface_pressure,
+    wind_speed = EXCLUDED.wind_speed,
+    wind_direction = EXCLUDED.wind_direction,
+    wind_gusts = EXCLUDED.wind_gusts,
+    precipitation = EXCLUDED.precipitation,
+    rain = EXCLUDED.rain,
+    cloud_cover = EXCLUDED.cloud_cover,
+    weather_code = EXCLUDED.weather_code,
+    weather_condition = EXCLUDED.weather_condition,
+    is_day = EXCLUDED.is_day,
+    inserted_at = CURRENT_TIMESTAMP;

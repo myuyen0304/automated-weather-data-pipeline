@@ -107,7 +107,8 @@ def load_cleaned_to_staging(
 
     # Staging là buffer cho batch HIỆN TẠI: xóa sạch trước khi nạp để không
     # tích lũy dữ liệu cũ qua nhiều lần chạy. Star schema vẫn an toàn vì script
-    # 04 dùng ON CONFLICT DO NOTHING để giữ lịch sử trong fact.
+    # 04 upsert theo (location_id, observation_time) để không tạo trùng và để
+    # Archive data có thể thay thế forecast data cũ nếu cùng mốc giờ.
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE TABLE {STAGING_TABLE}"))
 
