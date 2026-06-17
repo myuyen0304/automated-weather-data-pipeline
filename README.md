@@ -12,7 +12,7 @@ https://archive-api.open-meteo.com/v1/archive
 
 Open-Meteo is a good fit for this portfolio project because it returns weather data as JSON, supports hourly variables through latitude and longitude, and does not require an API key for the archive workflow used here.
 
-The pipeline is automated with Windows Task Scheduler (via `scripts/run_pipeline_task.ps1`) — or Linux Cron as an alternative — so weather data can be collected and updated every day without manual execution.
+The pipeline is orchestrated with Apache Airflow, so the daily ETL runs as a scheduled DAG with retries, task-level logs, and a UI for monitoring. The `airflow-scheduler` container is the automation layer that evaluates the DAG schedule and triggers the pipeline inside Docker Compose.
 
 ---
 
@@ -29,35 +29,32 @@ The main objectives of this project are:
 - Design a simple analytical data model using fact and dimension tables.
 - Create SQL marts for daily and weekly weather analysis.
 - Visualize weather trends using Power BI.
-- Automate the pipeline using Windows Task Scheduler (or Linux Cron).
+- Orchestrate the daily pipeline with Apache Airflow.
 
 ---
 
 ## 3. Pipeline Architecture
 
+![Automated Weather Data Pipeline](asset/weather-pipeline.png)
+
+Current production-style flow:
+
 ```text
 Open-Meteo Archive API
-    |
-Python Ingestion
-    |
-Raw JSON Storage
-    |
-Data Cleaning & Transformation
-    |
-Data Quality Checks
-    |
-PostgreSQL Staging Table
-    |
-SQL Data Modelling
-    |
-Fact & Dimension Tables
-    |
-SQL Mart Tables
-    |
-Power BI Dashboard
-    |
-Windows Task Scheduler (scripts/run_pipeline_task.ps1)
+    -> Airflow DAG schedule
+    -> Raw hourly JSON files
+    -> Python + pandas transformation
+    -> Data quality validation
+    -> PostgreSQL staging
+    -> dim_location / dim_date / fact_weather_observation
+    -> mart_daily_weather_summary / mart_weekly_weather_summary
+    -> Power BI dashboard
 ```
+
+The scheduled DAG is `weather_daily_pipeline`. It runs at `08:30 Asia/Ho_Chi_Minh`,
+loads the Archive target date `today - 5 days`, validates the cleaned CSV, and then
+loads PostgreSQL marts. The manual DAG `weather_archive_backfill` is used for
+historical reloads.
 
 ---
 
@@ -77,7 +74,7 @@ Windows Task Scheduler (scripts/run_pipeline_task.ps1)
 | Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
 | Orchestration | Apache Airflow (`docker-compose.airflow.yml`, `dags/`) |
-| Automation | Airflow DAG; Windows Task Scheduler (`scripts/run_pipeline_task.ps1`) as a simple local alternative |
+| Automation | Airflow scheduler container (`airflow-scheduler`) running DAG schedules in Docker Compose |
 | Testing / CI | pytest, GitHub Actions |
 | Environment Management | python-dotenv, virtual environment (`.venv` / `venv` / `uv`) |
 
@@ -163,19 +160,26 @@ automated-weather-data-pipeline/
 |
 ├── scripts/
 │   ├── build_cities_csv.py
-│   └── run_pipeline_task.ps1            # Windows Task Scheduler entry point (PowerShell)
+│   ├── check_cleaned_data_quality.py    # validation step used by Airflow
+│   └── run_pipeline_task.ps1            # optional manual Windows runner
 |
 ├── dags/
 │   ├── weather_daily_pipeline.py        # Airflow daily ETL DAG
 │   └── weather_archive_backfill.py      # Airflow manual archive backfill DAG
 |
-├── images/                             # architecture diagram
+├── asset/                              # pipeline diagram and dashboard screenshots
+│   ├── weather-pipeline.png
+│   ├── overview.jpg
+│   ├── city-comparasion.jpg
+│   └── daily-weekly-trend.jpg
+|
+├── docs/
+│   └── AIRFLOW.md                      # Airflow runbook
 |
 ├── docker-compose.yml                  # local PostgreSQL (postgres:16)
 ├── docker-compose.airflow.yml          # local Airflow orchestration stack
 ├── Dockerfile.airflow                  # Airflow image with project dependencies
-├── run_pipeline.bat                    # manual / alternative pipeline wrapper
-├── AIRFLOW.md
+├── run_pipeline.bat                    # manual pipeline wrapper
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -418,26 +422,44 @@ This mart can be used to answer questions such as:
 
 ## 10. Dashboard
 
-Power BI is used to visualize the weather data.
-
-Recommended dashboard charts:
-
-| Chart | Purpose |
-|---|---|
-| Average Temperature by City | Compare temperature across cities |
-| Temperature Trend by Date | Analyze temperature changes over time |
-| Total Rain by Week | Track weekly rainfall |
-| Humidity by City | Compare humidity levels |
-| Wind Speed Trend | Monitor wind speed changes |
-| Pressure Trend | Monitor pressure changes |
-| Weather Condition Distribution | Analyze weather condition frequency |
-| Cloud Cover by City | Compare cloud coverage |
-
-Dashboard data source:
+Power BI is used as the reporting layer on top of the PostgreSQL star schema and
+mart views. The dashboard connects to:
 
 ```text
-PostgreSQL -> mart_daily_weather_summary -> Power BI
+PostgreSQL
+  -> dim_location / dim_date / fact_weather_observation
+  -> mart_daily_weather_summary / mart_weekly_weather_summary
+  -> Power BI
 ```
+
+The shared city slicer and map field should use `dim_location[city]` so filters
+flow consistently to both daily and weekly mart-based visuals.
+
+### 10.1 Overview
+
+![Power BI dashboard overview](asset/overview.jpg)
+
+The overview page summarizes the current weather dataset with high-level KPI
+cards, city-level comparison, and recent weather condition distribution. It is
+designed as the first page for quickly checking whether the latest Airflow load
+has produced sensible reporting data.
+
+### 10.2 City Comparison
+
+![Power BI city comparison dashboard](asset/city-comparasion.jpg)
+
+The city comparison page focuses on cross-city analysis. It compares temperature,
+rainfall, humidity, wind, pressure, and other weather indicators across the 34
+configured Vietnamese provinces/cities.
+
+### 10.3 Daily and Weekly Trends
+
+![Power BI daily and weekly trend dashboard](asset/daily-weekly-trend.jpg)
+
+The trend page uses `mart_daily_weather_summary` and
+`mart_weekly_weather_summary` to analyze weather changes over time. It supports
+daily trend inspection and weekly aggregation for rainfall, temperature,
+humidity, wind, cloud cover, and pressure analysis.
 
 ---
 
@@ -445,14 +467,18 @@ PostgreSQL -> mart_daily_weather_summary -> Power BI
 
 ### Airflow orchestration
 
-The recommended orchestration upgrade is Apache Airflow. The repo includes:
+The automation layer is Apache Airflow running in Docker Compose. The `airflow-scheduler`
+container reads `dags/weather_daily_pipeline.py`, evaluates the DAG schedule
+(`30 8 * * *`), and triggers the ETL tasks automatically.
+
+The repo includes:
 
 ```text
 docker-compose.airflow.yml
 Dockerfile.airflow
 dags/weather_daily_pipeline.py
 dags/weather_archive_backfill.py
-AIRFLOW.md
+docs/AIRFLOW.md
 ```
 
 Airflow provides DAG-based scheduling, task retries, per-task logs, manual backfill,
@@ -467,8 +493,15 @@ docker compose up -d
 Initialize and start Airflow:
 
 ```powershell
+docker compose -f docker-compose.airflow.yml build
 docker compose -f docker-compose.airflow.yml up airflow-init
 docker compose -f docker-compose.airflow.yml up -d
+```
+
+Unpause the daily DAG so the Airflow scheduler can run it:
+
+```powershell
+docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags unpause weather_daily_pipeline
 ```
 
 Open:
@@ -491,49 +524,25 @@ Main DAGs:
 | `weather_daily_pipeline` | Daily 08:30 Asia/Ho_Chi_Minh | Archive API catch-up for `today - 5`, then PostgreSQL marts |
 | `weather_archive_backfill` | Manual trigger | Archive API backfill, then reload all raw history |
 
-See `AIRFLOW.md` for the full runbook.
+See `docs/AIRFLOW.md` for the full runbook.
 
-### Windows Task Scheduler alternative
-
-The pipeline is automated on Windows with **Task Scheduler** running
-`scripts\run_pipeline_task.ps1`, which starts PostgreSQL with `docker compose up -d`, waits for
-`weather_postgres` to become healthy, computes the safe Archive target date (`today - 5` in
-Asia/Ho_Chi_Minh), runs `src\backfill_weather.py` for that one completed day, then runs
-`src\main.py --skip-extract --date <target-date> --load`. Output is written to
-`logs\pipeline.log`. Docker Desktop/Docker engine must be running. The script auto-detects the
-interpreter in this order: `.venv` → `venv` → `uv run`.
-
-The intended local task is `WeatherPipeline`, scheduled daily at **08:30**. Register or update it
-by pointing Task Scheduler at `powershell.exe` and passing the script path as an argument:
+Check Airflow status:
 
 ```powershell
-$action = New-ScheduledTaskAction `
-  -Execute "powershell.exe" `
-  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"D:\automated-weather-data-pipeline\scripts\run_pipeline_task.ps1`""
-
-$trigger = New-ScheduledTaskTrigger -Daily -At 08:30
-
-Register-ScheduledTask `
-  -TaskName "WeatherPipeline" `
-  -Action $action `
-  -Trigger $trigger `
-  -Description "Run automated weather data pipeline daily" `
-  -Force
+docker compose -f docker-compose.airflow.yml ps
+docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags list
+docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags list-runs weather_daily_pipeline
 ```
 
-Verify it with:
+Airflow runs the daily pipeline through these DAG tasks:
 
-```powershell
-schtasks /Query /TN WeatherPipeline /V /FO LIST
-```
-
-Only claim the scheduler is currently active after verifying `WeatherPipeline` in Task Scheduler
-GUI/PowerShell and checking `logs\pipeline.log` after a scheduled run.
-
-On Linux you can use Cron instead:
-
-```bash
-30 8 * * * cd /home/user/automated-weather-data-pipeline && TARGET_DATE=$(date -d "5 days ago" +\%F) && /usr/bin/python3 src/backfill_weather.py --start-date "$TARGET_DATE" --end-date "$TARGET_DATE" && /usr/bin/python3 src/main.py --skip-extract --date "$TARGET_DATE" --load
+```text
+init_schema
+  -> resolve_archive_target_date
+  -> backfill_archive_day
+  -> transform_archive_day
+  -> validate_cleaned_data
+  -> load_postgres_marts
 ```
 
 ### main.py CLI flags
@@ -749,22 +758,20 @@ pytest
 
 ### Step 9: Schedule daily Archive runs
 
-On Windows, register the daily 08:30 task so Task Scheduler runs the Archive catch-up script:
+Start Airflow and unpause the daily DAG:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\automated-weather-data-pipeline\scripts\run_pipeline_task.ps1"
+docker compose -f docker-compose.airflow.yml build
+docker compose -f docker-compose.airflow.yml up airflow-init
+docker compose -f docker-compose.airflow.yml up -d
+docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags unpause weather_daily_pipeline
 ```
 
 Then verify with:
 
 ```powershell
-schtasks /Query /TN WeatherPipeline /V /FO LIST
-```
-
-On Linux, use Cron instead:
-
-```bash
-30 8 * * * cd /home/user/automated-weather-data-pipeline && TARGET_DATE=$(date -d "5 days ago" +\%F) && /usr/bin/python3 src/backfill_weather.py --start-date "$TARGET_DATE" --end-date "$TARGET_DATE" && /usr/bin/python3 src/main.py --skip-extract --date "$TARGET_DATE" --load
+docker compose -f docker-compose.airflow.yml ps
+docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags list-runs weather_daily_pipeline
 ```
 
 ---
@@ -773,13 +780,13 @@ On Linux, use Cron instead:
 
 After the pipeline runs successfully, the system should produce:
 
-- Raw Open-Meteo JSON files stored by date and city.
+- Raw Open-Meteo JSON files stored by date, hour, and city slug.
 - Cleaned weather data loaded into PostgreSQL.
 - Data quality validation before the staging load.
 - Fact and dimension tables for analytical querying.
 - SQL mart table or view for dashboard reporting.
 - Power BI-ready marts and optional local HTML visual reports.
-- Automated daily execution through Windows Task Scheduler (or Linux Cron).
+- Automated daily execution through Airflow DAG scheduling.
 - Automated test checks through pytest and GitHub Actions CI.
 
 ---
@@ -792,7 +799,6 @@ Possible improvements for future versions:
 - Save cleaned data as Parquet files.
 - Use dbt for data modelling and testing.
 - Expand data quality checks with Great Expectations or Pandera if the project grows.
-- Build and save a real Power BI `.pbix` dashboard from the PostgreSQL marts.
 - Deploy PostgreSQL on AWS RDS.
 - Deploy Airflow on a small cloud VM or a managed Airflow platform.
 - Add forecasting models for temperature or rainfall prediction.
