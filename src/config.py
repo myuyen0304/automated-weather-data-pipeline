@@ -29,6 +29,19 @@ DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
 
 
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+OBJECT_STORAGE_ENABLED = _env_flag("OBJECT_STORAGE_ENABLED")
+RAW_LOCAL_WRITE_ENABLED = _env_flag("RAW_LOCAL_WRITE_ENABLED", "true")
+S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://127.0.0.1:9000")
+S3_BUCKET = os.getenv("S3_BUCKET", "weather-pipeline")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")
+S3_RAW_PREFIX = os.getenv("S3_RAW_PREFIX", "raw/open-meteo").strip("/")
+S3_CLEANED_PREFIX = os.getenv("S3_CLEANED_PREFIX", "cleaned").strip("/")
+
+
 def get_db_url() -> str:
     """Chuỗi kết nối SQLAlchemy cho PostgreSQL (dùng driver psycopg2).
 
