@@ -8,6 +8,7 @@ import pandas as pd
 
 from config import CITIES, PROJECT_ROOT
 from extract_weather import slugify_city
+import transform_weather
 from transform_weather import transform_raw_files
 
 
@@ -113,5 +114,115 @@ def test_transform_reads_nested_hour_partitions() -> None:
         assert df["observation_time"].nunique() == 2
         assert df["temperature"].min() == 25.0
         assert df["temperature"].max() == 34.0
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
+
+
+def test_transform_writes_cleaned_parquet_sidecar(monkeypatch) -> None:
+    test_dir = PROJECT_ROOT / ".test-tmp" / f"transform-parquet-{uuid4().hex}"
+    test_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        city = CITIES[0]
+        raw_path = test_dir / f"{slugify_city(city['city'])}.json"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "latitude": city["latitude"],
+                    "longitude": city["longitude"],
+                    "current": {
+                        "time": "2026-06-13T08:00",
+                        "temperature_2m": 30.0,
+                        "relative_humidity_2m": 70,
+                        "apparent_temperature": 33.0,
+                        "precipitation": 0.0,
+                        "rain": 0.0,
+                        "weather_code": 1,
+                        "cloud_cover": 20,
+                        "pressure_msl": 1008.0,
+                        "surface_pressure": 1005.0,
+                        "wind_speed_10m": 7.0,
+                        "wind_direction_10m": 120,
+                        "wind_gusts_10m": 14.0,
+                        "is_day": 1,
+                    },
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        output_path = test_dir / "weather_observations.csv"
+        parquet_calls = []
+
+        def fake_to_parquet(self, path, index=False):
+            parquet_calls.append((path, index, len(self)))
+
+        monkeypatch.setattr(pd.DataFrame, "to_parquet", fake_to_parquet)
+
+        transform_raw_files(raw_files=[raw_path], output_path=output_path)
+
+        assert output_path.exists()
+        assert parquet_calls == [(output_path.with_suffix(".parquet"), False, 1)]
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
+
+
+def test_transform_reads_raw_from_object_storage_when_local_partition_missing(
+    monkeypatch,
+) -> None:
+    test_dir = PROJECT_ROOT / ".test-tmp" / f"transform-s3-{uuid4().hex}"
+    raw_dir = test_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        city = CITIES[0]
+        city_slug = slugify_city(city["city"])
+        object_key = f"raw/open-meteo/date=2026-06-14/hour=00/{city_slug}.json"
+
+        monkeypatch.setattr(
+            transform_weather,
+            "is_object_storage_enabled",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            transform_weather,
+            "list_object_keys",
+            lambda prefix=None: {object_key},
+        )
+        monkeypatch.setattr(
+            transform_weather,
+            "read_json_object",
+            lambda key: {
+                "latitude": city["latitude"],
+                "longitude": city["longitude"],
+                "current": {
+                    "time": "2026-06-14T00:00",
+                    "temperature_2m": 26.0,
+                    "relative_humidity_2m": 82,
+                    "apparent_temperature": 29.0,
+                    "precipitation": 0.0,
+                    "rain": 0.0,
+                    "weather_code": 0,
+                    "cloud_cover": 10,
+                    "pressure_msl": 1009.0,
+                    "surface_pressure": 1006.0,
+                    "wind_speed_10m": 5.0,
+                    "wind_direction_10m": 90,
+                    "wind_gusts_10m": 10.0,
+                    "is_day": 0,
+                },
+            },
+        )
+        monkeypatch.setattr(transform_weather, "upload_file", lambda *args, **kwargs: None)
+
+        output_path = test_dir / "weather_observations.csv"
+        transform_raw_files(
+            raw_dir=raw_dir,
+            run_date="2026-06-14",
+            output_path=output_path,
+        )
+
+        df = pd.read_csv(output_path)
+        assert len(df) == 1
+        assert df.loc[0, "city"] == city["city"]
+        assert df.loc[0, "source_file"] == f"s3://weather-pipeline/{object_key}"
     finally:
         shutil.rmtree(test_dir, ignore_errors=True)
