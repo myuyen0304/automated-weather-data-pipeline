@@ -68,6 +68,7 @@ historical reloads.
 | API Ingestion | requests |
 | Data Processing | pandas |
 | Raw Storage | Local JSON files |
+| Object Storage | Optional MinIO / S3-compatible bucket sync |
 | Database | PostgreSQL |
 | Data Modelling | SQL |
 | Analytics Layer | SQL views / mart tables |
@@ -142,7 +143,8 @@ automated-weather-data-pipeline/
 │   │   └── open-meteo/
 │   │       └── date=YYYY-MM-DD/hour=HH/<city>.json
 │   └── cleaned/
-│       └── weather_observations.csv     # transformed output
+│       ├── weather_observations.csv     # transformed output for PostgreSQL load
+│       └── weather_observations.parquet # columnar analytics copy
 |
 ├── sql/
 │   ├── 01_create_staging_table.sql
@@ -161,6 +163,7 @@ automated-weather-data-pipeline/
 ├── scripts/
 │   ├── build_cities_csv.py
 │   ├── check_cleaned_data_quality.py    # validation step used by Airflow
+│   ├── sync_object_storage.py           # upload existing raw/cleaned files to MinIO/S3
 │   └── run_pipeline_task.ps1            # optional manual Windows runner
 |
 ├── dags/
@@ -176,7 +179,7 @@ automated-weather-data-pipeline/
 ├── docs/
 │   └── AIRFLOW.md                      # Airflow runbook
 |
-├── docker-compose.yml                  # local PostgreSQL (postgres:16)
+├── docker-compose.yml                  # local PostgreSQL + optional MinIO object storage
 ├── docker-compose.airflow.yml          # local Airflow orchestration stack
 ├── Dockerfile.airflow                  # Airflow image with project dependencies
 ├── run_pipeline.bat                    # manual pipeline wrapper
@@ -545,6 +548,56 @@ init_schema
   -> load_postgres_marts
 ```
 
+### Optional MinIO object storage
+
+The pipeline can also sync generated files to a local MinIO bucket. This is an
+S3-compatible portfolio setup. In Airflow, raw JSON is written directly to MinIO,
+then the transform step reads raw from MinIO when no local raw partition exists.
+Cleaned CSV/Parquet files are still written locally for PostgreSQL loading and
+uploaded to MinIO as analytics copies.
+
+Start PostgreSQL and MinIO:
+
+```powershell
+docker compose up -d
+```
+
+MinIO endpoints:
+
+```text
+S3 API:  http://127.0.0.1:9000
+Console: http://127.0.0.1:9001
+Login:   minioadmin / minioadmin
+```
+
+Enable sync in `.env`:
+
+```text
+OBJECT_STORAGE_ENABLED=true
+RAW_LOCAL_WRITE_ENABLED=false
+S3_ENDPOINT_URL=http://127.0.0.1:9000
+S3_BUCKET=weather-pipeline
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+```
+
+When enabled, the pipeline uploads:
+
+```text
+raw/open-meteo/date=YYYY-MM-DD/hour=HH/<city>.json
+cleaned/weather_observations.csv
+cleaned/weather_observations.parquet
+```
+
+`RAW_LOCAL_WRITE_ENABLED=false` means raw JSON will not be created under
+`data/raw/open-meteo`; it is put directly to the configured MinIO/S3 bucket.
+
+To upload files that already exist locally, run:
+
+```powershell
+python scripts/sync_object_storage.py
+```
+
 ### main.py CLI flags
 
 `src/main.py` orchestrates the pipeline through `argparse`. By default it extracts and transforms;
@@ -636,6 +689,15 @@ DB_PORT=5432
 DB_NAME=weather_db
 DB_USER=postgres
 DB_PASSWORD=postgres
+
+OBJECT_STORAGE_ENABLED=false
+S3_ENDPOINT_URL=http://127.0.0.1:9000
+S3_BUCKET=weather-pipeline
+S3_REGION=us-east-1
+S3_RAW_PREFIX=raw/open-meteo
+S3_CLEANED_PREFIX=cleaned
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
 ```
 
 The `.env` file should not be committed to GitHub.
@@ -650,9 +712,11 @@ Example `requirements.txt`:
 requests
 python-dotenv
 pandas
+pyarrow
 psycopg2-binary
 SQLAlchemy
 pytest
+boto3
 ```
 
 Install dependencies:
@@ -716,15 +780,16 @@ Ho Chi Minh City,Vietnam,10.823,106.6296
 
 Add or remove rows to change which locations the pipeline collects.
 
-### Step 6: Start PostgreSQL
+### Step 6: Start PostgreSQL and optional MinIO
 
-The repo ships a `docker-compose.yml` with PostgreSQL 16. Start it with:
+The repo ships a `docker-compose.yml` with PostgreSQL 16 and MinIO. Start it with:
 
 ```bash
 docker compose up -d
 ```
 
 The `POSTGRES_*` values match `.env` (`DB_NAME` / `DB_USER` / `DB_PASSWORD`).
+MinIO is only used by the pipeline when `OBJECT_STORAGE_ENABLED=true`.
 
 ### Step 7: Create database tables
 
@@ -783,6 +848,7 @@ After the pipeline runs successfully, the system should produce:
 - Raw Open-Meteo JSON files stored by date, hour, and city slug.
 - Cleaned weather data loaded into PostgreSQL.
 - Data quality validation before the staging load.
+- Cleaned CSV plus Parquet output for reusable analytical storage.
 - Fact and dimension tables for analytical querying.
 - SQL mart table or view for dashboard reporting.
 - Power BI-ready marts and optional local HTML visual reports.
@@ -795,8 +861,8 @@ After the pipeline runs successfully, the system should produce:
 
 Possible improvements for future versions:
 
-- Store raw JSON and cleaned data in Amazon S3 or MinIO.
-- Save cleaned data as Parquet files.
+- [Done locally] Store raw JSON and cleaned data in MinIO/S3-compatible object storage.
+- [Done] Save cleaned data as Parquet files alongside the CSV load artifact.
 - Use dbt for data modelling and testing.
 - Expand data quality checks with Great Expectations or Pandera if the project grows.
 - Deploy PostgreSQL on AWS RDS.
