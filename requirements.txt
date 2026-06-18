@@ -1,6 +1,8 @@
 requests
 python-dotenv
 pandas
+pyarrow
 psycopg2-binary
 SQLAlchemy
 pytest
+boto3
