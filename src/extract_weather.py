@@ -16,8 +16,15 @@ from config import (
     CITIES,
     CURRENT_WEATHER_FIELDS,
     OPEN_METEO_BASE_URL,
+    RAW_LOCAL_WRITE_ENABLED,
     RAW_DATA_DIR,
     WEATHER_TIMEZONE,
+)
+from object_storage import (
+    is_object_storage_enabled,
+    object_key_for_path,
+    put_json_object,
+    upload_file,
 )
 
 
@@ -189,9 +196,18 @@ def save_raw_weather_response(
     output_dir = RAW_DATA_DIR / f"date={run_date}"
     if run_hour is not None:
         output_dir = output_dir / f"hour={run_hour}"
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{slugify_city(city_config['city'])}.json"
+    if not RAW_LOCAL_WRITE_ENABLED:
+        if not is_object_storage_enabled():
+            raise RuntimeError(
+                "RAW_LOCAL_WRITE_ENABLED=false requires OBJECT_STORAGE_ENABLED=true "
+                "so raw JSON has somewhere to be stored."
+            )
+        put_json_object(payload, object_key_for_path(output_path))
+        return output_path
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     temp_path = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
     try:
         temp_path.write_text(
@@ -199,6 +215,7 @@ def save_raw_weather_response(
             encoding="utf-8",
         )
         temp_path.replace(output_path)
+        upload_file(output_path)
     finally:
         if temp_path.exists():
             temp_path.unlink()
