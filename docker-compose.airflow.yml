@@ -28,6 +28,19 @@ x-airflow-common: &airflow-common
     DB_NAME: weather_db
     DB_USER: postgres
     DB_PASSWORD: postgres
+    # --- Object storage (MinIO) ---
+    # Bat upload CHI trong container Airflow. Endpoint dung host.docker.internal vi
+    # MinIO publish port 9000 tren host (xem docker-compose.yml). Cac gia tri nay
+    # thang gia tri trong .env vi config.py load_dotenv(override=False).
+    OBJECT_STORAGE_ENABLED: "true"
+    RAW_LOCAL_WRITE_ENABLED: "false"
+    S3_ENDPOINT_URL: http://host.docker.internal:9000
+    S3_BUCKET: weather-pipeline
+    S3_REGION: us-east-1
+    S3_RAW_PREFIX: raw/open-meteo
+    S3_CLEANED_PREFIX: cleaned
+    AWS_ACCESS_KEY_ID: minioadmin
+    AWS_SECRET_ACCESS_KEY: minioadmin
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs/airflow:/opt/airflow/logs
