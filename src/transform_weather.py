@@ -10,8 +10,21 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from config import CLEANED_DATA_DIR, CITIES, RAW_DATA_DIR, WEATHER_TIMEZONE
+from config import (
+    CLEANED_DATA_DIR,
+    CITIES,
+    RAW_DATA_DIR,
+    S3_BUCKET,
+    S3_RAW_PREFIX,
+    WEATHER_TIMEZONE,
+)
 from extract_weather import slugify_city
+from object_storage import (
+    is_object_storage_enabled,
+    list_object_keys,
+    read_json_object,
+    upload_file,
+)
 
 
 WEATHER_CODE_MAP = {
@@ -46,11 +59,15 @@ def read_raw_weather_file(raw_path: Path) -> dict[str, Any]:
     return json.loads(raw_path.read_text(encoding="utf-8"))
 
 
-def normalize_weather_record(raw_path: Path) -> dict[str, Any]:
-    payload = read_raw_weather_file(raw_path)
-    city_config = CITY_BY_FILE_STEM.get(raw_path.stem)
+def normalize_weather_payload(
+    payload: dict[str, Any],
+    *,
+    city_slug: str,
+    source_file: str,
+) -> dict[str, Any]:
+    city_config = CITY_BY_FILE_STEM.get(city_slug)
     if city_config is None:
-        raise ValueError(f"Cannot map raw file to configured city: {raw_path}")
+        raise ValueError(f"Cannot map raw source to configured city: {source_file}")
 
     current = payload.get("current", {})
     weather_code = current.get("weather_code")
@@ -75,9 +92,27 @@ def normalize_weather_record(raw_path: Path) -> dict[str, Any]:
         "weather_code": weather_code,
         "weather_condition": WEATHER_CODE_MAP.get(weather_code, "Unknown"),
         "is_day": bool(current.get("is_day")),
-        "inserted_at": datetime.now(ZoneInfo(WEATHER_TIMEZONE)).isoformat(timespec="seconds"),
-        "source_file": str(raw_path),
+        "inserted_at": datetime.now(ZoneInfo(WEATHER_TIMEZONE)).isoformat(
+            timespec="seconds"
+        ),
+        "source_file": source_file,
     }
+
+
+def normalize_weather_record(raw_path: Path) -> dict[str, Any]:
+    return normalize_weather_payload(
+        read_raw_weather_file(raw_path),
+        city_slug=raw_path.stem,
+        source_file=str(raw_path),
+    )
+
+
+def normalize_weather_object(object_key: str) -> dict[str, Any]:
+    return normalize_weather_payload(
+        read_json_object(object_key),
+        city_slug=Path(object_key).stem,
+        source_file=f"s3://{S3_BUCKET}/{object_key}",
+    )
 
 
 def list_raw_weather_files(
@@ -111,27 +146,85 @@ def list_raw_weather_files(
     return raw_files
 
 
+def _date_partition_from_key(object_key: str) -> str | None:
+    for part in object_key.split("/"):
+        if part.startswith("date="):
+            return part.removeprefix("date=")
+    return None
+
+
+def list_raw_weather_object_keys(
+    run_date: str | None = None,
+    include_history: bool = False,
+) -> list[str]:
+    if not is_object_storage_enabled():
+        raise FileNotFoundError("Object storage is disabled.")
+
+    raw_prefix = S3_RAW_PREFIX.rstrip("/")
+    if run_date is not None:
+        prefix = f"{raw_prefix}/date={run_date}/"
+        keys = sorted(key for key in list_object_keys(prefix) if key.endswith(".json"))
+        if not keys:
+            raise FileNotFoundError(f"No raw JSON objects found under s3 prefix {prefix}")
+        return keys
+
+    keys = sorted(key for key in list_object_keys(raw_prefix) if key.endswith(".json"))
+    if not keys:
+        raise FileNotFoundError(f"No raw JSON objects found under s3 prefix {raw_prefix}")
+
+    if include_history:
+        return keys
+
+    dates = sorted({date for key in keys if (date := _date_partition_from_key(key))})
+    if not dates:
+        raise FileNotFoundError(f"No date partitions found under s3 prefix {raw_prefix}")
+
+    latest_date = dates[-1]
+    return [
+        key
+        for key in keys
+        if _date_partition_from_key(key) == latest_date
+    ]
+
+
 def transform_raw_files(
     raw_dir: Path = RAW_DATA_DIR,
     output_path: Path | None = None,
+    parquet_output_path: Path | None = None,
     raw_files: Iterable[Path] | None = None,
     run_date: str | None = None,
     include_history: bool = False,
 ) -> Path:
-    selected_raw_files = (
-        sorted(raw_files)
-        if raw_files is not None
-        else list_raw_weather_files(raw_dir, run_date, include_history)
-    )
+    selected_raw_files: list[Path] = []
+    selected_raw_keys: list[str] = []
+    if raw_files is not None:
+        selected_raw_files = sorted(raw_files)
+    else:
+        try:
+            selected_raw_files = list_raw_weather_files(
+                raw_dir,
+                run_date,
+                include_history,
+            )
+        except FileNotFoundError:
+            selected_raw_keys = list_raw_weather_object_keys(run_date, include_history)
 
     # Đọc file là nghẽn I/O (mở từng JSON nhỏ trên Windows rất chậm), nên đọc song
     # song bằng thread pool. executor.map giữ nguyên thứ tự input để output ổn định.
-    if len(selected_raw_files) > 1:
+    selected_count = len(selected_raw_files) + len(selected_raw_keys)
+    if selected_raw_keys:
+        normalize = normalize_weather_object
+        selected_sources = selected_raw_keys
+    else:
+        normalize = normalize_weather_record
+        selected_sources = selected_raw_files
+
+    if selected_count > 1:
         max_workers = min(32, (os.cpu_count() or 4) * 4)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            records = list(executor.map(normalize_weather_record, selected_raw_files))
+            records = list(executor.map(normalize, selected_sources))
     else:
-        records = [normalize_weather_record(raw_path) for raw_path in selected_raw_files]
+        records = [normalize(source) for source in selected_sources]
     df = pd.DataFrame(records)
     df["observation_time"] = pd.to_datetime(df["observation_time"])
     df["inserted_at"] = pd.to_datetime(df["inserted_at"])
@@ -141,8 +234,23 @@ def transform_raw_files(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False, encoding="utf-8")
+    upload_file(output_path)
+
+    if parquet_output_path is None:
+        parquet_output_path = output_path.with_suffix(".parquet")
+
+    try:
+        df.to_parquet(parquet_output_path, index=False)
+        upload_file(parquet_output_path)
+        print(f"Saved cleaned Parquet table: {parquet_output_path}")
+    except ImportError:
+        print(
+            "Skipped Parquet output because no Parquet engine is installed. "
+            "Install dependencies from requirements.txt to enable it."
+        )
+
     print(
         f"Saved cleaned weather table: {output_path} "
-        f"({len(df)} rows from {len(selected_raw_files)} raw files)"
+        f"({len(df)} rows from {selected_count} raw files)"
     )
     return output_path
