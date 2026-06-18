@@ -55,8 +55,9 @@ def main() -> None:
         extracted_paths = extract_all_cities()
 
     if not args.extract_only:
-        if extracted_paths and not args.date and not args.all_raw:
-            transform_raw_files(raw_files=extracted_paths)
+        local_extracted_paths = [path for path in extracted_paths if path.exists()]
+        if local_extracted_paths and not args.date and not args.all_raw:
+            transform_raw_files(raw_files=local_extracted_paths)
         else:
             transform_raw_files(run_date=args.date, include_history=args.all_raw)
 
