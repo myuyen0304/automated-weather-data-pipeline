@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import requests
 from requests import HTTPError, RequestException
 
-from config import CITIES, CURRENT_WEATHER_FIELDS, WEATHER_TIMEZONE
+from config import CITIES, CURRENT_WEATHER_FIELDS, ERA5_DELAY_DAYS, WEATHER_TIMEZONE
 from extract_weather import build_hourly_payloads, save_raw_weather_response
 
 
@@ -22,8 +22,7 @@ ARCHIVE_BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 HOURLY_FIELDS = [field for field in CURRENT_WEATHER_FIELDS if field != "is_day"]
 DAILY_FIELDS = ["sunrise", "sunset"]
 
-# Độ trễ ERA5: dữ liệu archive thường trễ ~5 ngày so với hiện tại.
-ERA5_DELAY_DAYS = 5
+# ERA5_DELAY_DAYS lấy từ config (nguồn chung) — xem chú thích trong config.py.
 
 
 def fetch_archive(
