@@ -23,6 +23,9 @@ x-airflow-common: &airflow-common
     WEATHER_PROJECT_ROOT: /opt/airflow/project
     OPEN_METEO_BASE_URL: https://api.open-meteo.com/v1/forecast
     WEATHER_TIMEZONE: Asia/Ho_Chi_Minh
+    # Khop config.ERA5_DELAY_DAYS cho ca DAG-parse va subprocess. Interpolate tu .env
+    # project-root; default 5 neu khong set. Bat buoc o day de DAG va subprocess khong drift.
+    ERA5_DELAY_DAYS: ${ERA5_DELAY_DAYS:-5}
     DB_HOST: host.docker.internal
     DB_PORT: "5432"
     DB_NAME: weather_db
