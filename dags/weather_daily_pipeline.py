@@ -15,7 +15,10 @@ except ImportError:  # Airflow 2 fallback for local linting or older images.
 
 
 PROJECT_ROOT = Path(os.getenv("WEATHER_PROJECT_ROOT", "/opt/airflow/project"))
-ARCHIVE_DELAY_DAYS = 5
+# Độ trễ ERA5: đọc qua env vì KHÔNG import config được lúc Airflow parse DAG (src chỉ
+# vào PYTHONPATH ở subprocess). Phải khớp config.ERA5_DELAY_DAYS — override chung qua
+# docker-compose.airflow.yml (ERA5_DELAY_DAYS), default 5 nếu env trống.
+ARCHIVE_DELAY_DAYS = int(os.getenv("ERA5_DELAY_DAYS", "5"))
 
 
 def run_project_command(args: list[str]) -> None:
