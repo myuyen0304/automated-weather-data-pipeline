@@ -21,6 +21,12 @@ OPEN_METEO_BASE_URL = os.getenv(
 )
 WEATHER_TIMEZONE = os.getenv("WEATHER_TIMEZONE", "Asia/Ho_Chi_Minh")
 
+# Độ trễ ERA5 reanalysis (Archive API): dữ liệu thường trễ ~5 ngày so với hiện tại.
+# Đây là nguồn runtime chung: backfill clamp end_date và Airflow DAG tính target date
+# đều suy từ giá trị này. Lưu ý: DAG KHÔNG import config được lúc parse (src chỉ vào
+# PYTHONPATH ở subprocess), nên DAG đọc lại cùng env ERA5_DELAY_DAYS thay vì import.
+ERA5_DELAY_DAYS = int(os.getenv("ERA5_DELAY_DAYS", "5"))
+
 # --- PostgreSQL connection (khớp với docker-compose.yml và .env.example) ---
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = os.getenv("DB_PORT", "5432")
