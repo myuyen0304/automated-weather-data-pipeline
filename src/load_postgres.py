@@ -74,6 +74,7 @@ def init_database(engine: Engine | None = None) -> None:
         "02_create_dimensions.sql",
         "03_create_fact_table.sql",
         "05_create_marts.sql",
+        "06_create_delivery_risk_mart.sql",  # view-trên-view, phải sau 05
     ):
         run_sql_file(SQL_DIR / name, engine)
 

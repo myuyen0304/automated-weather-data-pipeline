@@ -36,6 +36,12 @@ EXPECTED_CITY_COUNT = len(EXPECTED_CITIES)
 TEMPERATURE_MIN_C = -20
 TEMPERATURE_MAX_C = 60
 
+# Hourly grain: mỗi (city, ngày) phải đủ 24 giờ thì mart daily (và delivery risk
+# suy ra từ nó) mới đúng — thiếu đúng giờ mưa -> total_rain thấp giả -> báo "Low"
+# sai. Để strict=24 cho batch daily T-5 (thường đủ); hạ ngưỡng tại đây nếu Archive
+# hay skip giờ null hợp lệ gây false-fail.
+EXPECTED_HOURS_PER_DAY = 24
+
 
 @dataclass(frozen=True)
 class DataQualityResult:
@@ -128,6 +134,23 @@ def validate_weather_observations(df: pd.DataFrame) -> DataQualityResult:
                 for date, count in incomplete_dates.items()
             )
             errors.append(f"incomplete city coverage by date: {formatted}")
+
+        hours_per_group = working.groupby(["city", "observation_date"])[
+            "observation_time"
+        ].apply(lambda times: times.dt.hour.nunique())
+        incomplete_hours = hours_per_group[hours_per_group < EXPECTED_HOURS_PER_DAY]
+        if not incomplete_hours.empty:
+            items = [
+                f"{city}@{date}={count}/{EXPECTED_HOURS_PER_DAY}h"
+                for (city, date), count in incomplete_hours.items()
+            ]
+            suffix = "" if len(items) <= 8 else f", ... (+{len(items) - 8} more)"
+            errors.append(
+                "incomplete hourly coverage (expected "
+                f"{EXPECTED_HOURS_PER_DAY} hours/city/day): "
+                + ", ".join(items[:8])
+                + suffix
+            )
 
     if errors:
         raise ValueError("Data quality check failed: " + "; ".join(errors))
