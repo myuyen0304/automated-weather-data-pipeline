@@ -1,5 +1,6 @@
 param(
-    [int]$ArchiveDelayDays = 5,
+    # Khop config.ERA5_DELAY_DAYS: doc env ERA5_DELAY_DAYS neu co, mac dinh 5.
+    [int]$ArchiveDelayDays = $(if ($env:ERA5_DELAY_DAYS) { [int]$env:ERA5_DELAY_DAYS } else { 5 }),
     [string]$TargetDate = "",
     [string]$TaskName = "WeatherPipeline",
     [int]$DockerWaitAttempts = 24,
