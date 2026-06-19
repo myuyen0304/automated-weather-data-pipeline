@@ -173,7 +173,7 @@ automated-weather-data-pipeline/
 ├── asset/                              # pipeline diagram and dashboard screenshots
 │   ├── weather-pipeline.png
 │   ├── overview.jpg
-│   ├── city-comparasion.jpg
+│   ├── city-comparison.jpg
 │   └── daily-weekly-trend.jpg
 |
 ├── docs/
@@ -449,7 +449,7 @@ has produced sensible reporting data.
 
 ### 10.2 City Comparison
 
-![Power BI city comparison dashboard](asset/city-comparasion.jpg)
+![Power BI city comparison dashboard](asset/city-comparison.jpg)
 
 The city comparison page focuses on cross-city analysis. It compares temperature,
 rainfall, humidity, wind, pressure, and other weather indicators across the 34
