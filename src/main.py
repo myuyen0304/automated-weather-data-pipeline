@@ -29,6 +29,14 @@ def main() -> None:
         help="Also load cleaned data into PostgreSQL (requires a running DB).",
     )
     parser.add_argument(
+        "--load-agriculture",
+        action="store_true",
+        help=(
+            "Also load agriculture mapping/rules and refresh the rule-based "
+            "weather advisory mart. If --load is set, weather loads first."
+        ),
+    )
+    parser.add_argument(
         "--date",
         help="Transform raw JSON from one partition, formatted as YYYY-MM-DD.",
     )
@@ -41,6 +49,9 @@ def main() -> None:
 
     if args.extract_only and args.load:
         parser.error("--extract-only cannot be combined with --load because load needs transformed data.")
+
+    if args.extract_only and args.load_agriculture:
+        parser.error("--extract-only cannot be combined with --load-agriculture.")
 
     # --init-db chạy độc lập: chỉ tạo schema rồi thoát.
     if args.init_db:
@@ -65,6 +76,11 @@ def main() -> None:
         from load_postgres import load_to_postgres
 
         load_to_postgres()
+
+    if args.load_agriculture:
+        from load_agriculture import load_agriculture_to_postgres
+
+        load_agriculture_to_postgres()
 
 
 if __name__ == "__main__":
