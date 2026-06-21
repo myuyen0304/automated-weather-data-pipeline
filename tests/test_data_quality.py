@@ -4,7 +4,10 @@ import pandas as pd
 import pytest
 
 from config import CITIES
-from data_quality import validate_weather_observations
+from data_quality import (
+    validate_agri_region_mapping,
+    validate_weather_observations,
+)
 
 
 def _valid_weather_frame() -> pd.DataFrame:
@@ -88,3 +91,44 @@ def test_validate_weather_observations_rejects_duplicate_city_time() -> None:
 
     with pytest.raises(ValueError, match="duplicate city/observation_time"):
         validate_weather_observations(df)
+
+
+# --- Agriculture city -> crop mapping ----------------------------------------
+
+def _valid_agri_mapping_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "city": [city["city"] for city in CITIES],
+            "agri_region": ["Test Region"] * len(CITIES),
+            "main_crop_group": ["coffee"] * len(CITIES),
+        }
+    )
+
+
+def test_validate_agri_region_mapping_accepts_complete_city_mapping() -> None:
+    assert validate_agri_region_mapping(_valid_agri_mapping_frame()) == len(CITIES)
+
+
+def test_validate_agri_region_mapping_rejects_missing_city() -> None:
+    df = _valid_agri_mapping_frame().iloc[:-1].copy()
+
+    with pytest.raises(ValueError, match="missing configured cities"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_duplicate_city() -> None:
+    df = pd.concat(
+        [_valid_agri_mapping_frame(), _valid_agri_mapping_frame().head(1)],
+        ignore_index=True,
+    )
+
+    with pytest.raises(ValueError, match="duplicate city mapping"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_unknown_crop() -> None:
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "main_crop_group"] = "dragonfruit"  # not seeded in dim_crop
+
+    with pytest.raises(ValueError, match="unknown crops"):
+        validate_agri_region_mapping(df)
