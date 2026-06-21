@@ -96,17 +96,32 @@ def test_validate_weather_observations_rejects_duplicate_city_time() -> None:
 # --- Agriculture city -> crop mapping ----------------------------------------
 
 def _valid_agri_mapping_frame() -> pd.DataFrame:
+    """Mỗi city 1 cây (coffee, primary), area_share NULL — hợp lệ tối thiểu."""
     return pd.DataFrame(
         {
             "city": [city["city"] for city in CITIES],
             "agri_region": ["Test Region"] * len(CITIES),
-            "main_crop_group": ["coffee"] * len(CITIES),
+            "crop": ["coffee"] * len(CITIES),
+            "crop_role": ["primary"] * len(CITIES),
+            "area_share": [pd.NA] * len(CITIES),
+            "crop_source": ["test source"] * len(CITIES),
         }
     )
 
 
 def test_validate_agri_region_mapping_accepts_complete_city_mapping() -> None:
     assert validate_agri_region_mapping(_valid_agri_mapping_frame()) == len(CITIES)
+
+
+def test_validate_agri_region_mapping_accepts_multiple_crops_per_city() -> None:
+    """Đa cây/tỉnh: thêm dòng (city, crop) khác cây -> hợp lệ, không phải trùng."""
+    base = _valid_agri_mapping_frame()
+    extra = base.head(1).copy()
+    extra["crop"] = "vegetable"
+    extra["crop_role"] = "secondary"  # cây phụ -> city đầu vẫn đúng 1 primary
+    df = pd.concat([base, extra], ignore_index=True)
+
+    assert validate_agri_region_mapping(df) == len(CITIES) + 1
 
 
 def test_validate_agri_region_mapping_rejects_missing_city() -> None:
@@ -116,19 +131,90 @@ def test_validate_agri_region_mapping_rejects_missing_city() -> None:
         validate_agri_region_mapping(df)
 
 
-def test_validate_agri_region_mapping_rejects_duplicate_city() -> None:
+def test_validate_agri_region_mapping_rejects_duplicate_city_crop_pair() -> None:
     df = pd.concat(
         [_valid_agri_mapping_frame(), _valid_agri_mapping_frame().head(1)],
         ignore_index=True,
     )
 
-    with pytest.raises(ValueError, match="duplicate city mapping"):
+    with pytest.raises(ValueError, match=r"duplicate \(city, crop\)"):
         validate_agri_region_mapping(df)
 
 
 def test_validate_agri_region_mapping_rejects_unknown_crop() -> None:
     df = _valid_agri_mapping_frame()
-    df.loc[0, "main_crop_group"] = "dragonfruit"  # not seeded in dim_crop
+    df.loc[0, "crop"] = "dragonfruit"  # not seeded in dim_crop
 
     with pytest.raises(ValueError, match="unknown crops"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_area_share_out_of_range() -> None:
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "area_share"] = 1.5  # tỷ trọng phải trong (0, 1]
+
+    with pytest.raises(ValueError, match="area_share out of range"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_blank_crop_source() -> None:
+    """crop_source là căn cứ hiện diện cây -> không được để trống nếu có cột."""
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "crop_source"] = ""
+
+    with pytest.raises(ValueError, match="crop_source"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_incomplete_share_sum() -> None:
+    """Khi MỌI dòng của một city có share thì tổng phải ~1 (config đầy đủ)."""
+    base = _valid_agri_mapping_frame()
+    first_city = base.loc[0, "city"]
+    # city đầu: 2 cây, share 0.5 + 0.2 = 0.7 != 1.0
+    base.loc[0, "area_share"] = 0.5
+    extra = base.head(1).copy()
+    extra["crop"] = "vegetable"
+    extra["crop_role"] = "secondary"  # giữ đúng 1 primary -> test fail vì tổng share, không phải role
+    extra["area_share"] = 0.2
+    df = pd.concat([base, extra], ignore_index=True)
+
+    with pytest.raises(ValueError, match="sums to"):
+        validate_agri_region_mapping(df)
+    assert first_city  # giữ tham chiếu cho rõ ý định test
+
+
+def test_validate_agri_region_mapping_rejects_invalid_crop_role() -> None:
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "crop_role"] = "dominant"  # phải là primary/secondary
+
+    with pytest.raises(ValueError, match="invalid crop_role"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_blank_crop_role() -> None:
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "crop_role"] = ""
+
+    with pytest.raises(ValueError, match="crop_role"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_two_primary_crops() -> None:
+    """Đa cây nhưng 2 dòng cùng primary -> sai (mỗi tỉnh đúng 1 cây chủ lực)."""
+    base = _valid_agri_mapping_frame()
+    extra = base.head(1).copy()
+    extra["crop"] = "vegetable"
+    extra["crop_role"] = "primary"  # city đầu giờ có 2 primary
+    df = pd.concat([base, extra], ignore_index=True)
+
+    with pytest.raises(ValueError, match="exactly 1 primary"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_rejects_zero_primary_crops() -> None:
+    """Tỉnh có cây nhưng không cây nào primary -> sai (index không bắt được case này)."""
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "crop_role"] = "secondary"  # city đầu giờ 0 primary
+
+    with pytest.raises(ValueError, match="exactly 1 primary"):
         validate_agri_region_mapping(df)
