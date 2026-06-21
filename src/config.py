@@ -11,6 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CITIES_FILE= PROJECT_ROOT / "data" / "cities.csv"
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw" / "open-meteo"
 CLEANED_DATA_DIR = PROJECT_ROOT / "data" / "cleaned"
+AGRICULTURE_DATA_DIR = PROJECT_ROOT / "data" / "agriculture"
 SQL_DIR = PROJECT_ROOT / "sql"
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -71,6 +72,13 @@ CURRENT_WEATHER_FIELDS = [
     "wind_speed_10m",
     "wind_direction_10m",
     "wind_gusts_10m",
+    # Biến nông học cho mart tưới FAO-56 (ETc = ET0 x Kc - mưa hiệu dụng, GDD).
+    # Cả Forecast lẫn Archive API đều trả 4 biến này non-null cho toạ độ VN
+    # (đã verify curl). et0 = mm/giờ (cộng 24 giờ = ET0 ngày), soil_moisture = m3/m3.
+    "et0_fao_evapotranspiration",
+    "soil_moisture_0_to_7cm",
+    "soil_temperature_0_to_7cm",
+    "shortwave_radiation",
     "is_day",
 ]
 
