@@ -2,7 +2,10 @@
 -- 08_create_irrigation_need_mart.sql
 -- Mart tưới theo chuẩn FAO-56 (Allen et al. 1998, Irrigation & Drainage Paper 56).
 --
--- Grain = city + full_date + crop.
+-- Grain = city + full_date + crop. Một tỉnh trồng nhiều cây -> nhiều dòng/ngày
+-- (mỗi cây một dòng); KHÔNG rollup trọng số cấp tỉnh vì area_share hiện NULL.
+-- crop_role ('primary'/'secondary') cho phép Power BI lọc nhanh "cây chủ lực" của
+-- mỗi tỉnh (mặc định 1 dòng/tỉnh) mà không cần area_share.
 -- Mô hình: ETc = ET0 x Kc ; nhu cầu tưới = max(0, ETc - mưa hiệu dụng).
 --   - ET0 (total_et0_mm): ET tham chiếu ngày = tổng 24 giờ et0_fao (Open-Meteo).
 --   - Kc (kc_mid): hệ số cây trồng, trích FAO-56 Table 12 (xem dim_crop.kc_source).
@@ -18,12 +21,18 @@
 -- Đây là decision-support cấp VÙNG, CHƯA validate với năng suất/đo nước thực địa.
 -- ============================================================================
 
+-- DROP trước: CREATE OR REPLACE VIEW không cho đổi thứ tự/tên cột (ở đây chèn thêm
+-- area_share). View không bị FK tham chiếu nên DROP an toàn.
+DROP VIEW IF EXISTS mart_irrigation_need;
+
 CREATE OR REPLACE VIEW mart_irrigation_need AS
 WITH base AS (
     SELECT
         w.city,
         ar.agri_region,
-        ar.main_crop_group AS crop,
+        ar.crop AS crop,
+        ar.crop_role,
+        ar.area_share,
         w.full_date,
         w.max_temperature,
         w.min_temperature,
@@ -37,12 +46,14 @@ WITH base AS (
         ROUND(w.total_et0_mm * c.kc_mid, 2) AS etc_mm
     FROM mart_daily_weather_summary w
     JOIN dim_agri_region ar ON ar.city = w.city
-    JOIN dim_crop c         ON c.crop = ar.main_crop_group
+    JOIN dim_crop c         ON c.crop = ar.crop
 )
 SELECT
     city,
     agri_region,
     crop,
+    crop_role,
+    area_share,
     full_date,
     total_et0_mm,
     kc_mid,
@@ -54,7 +65,13 @@ SELECT
         ELSE NULL
     END AS irrigation_need_mm,
     avg_soil_moisture,
-    ROUND(GREATEST(0, (max_temperature + min_temperature) / 2 - t_base_c), 2) AS daily_gdd,
+    -- GDD chỉ tính khi cây có T_base trích nguồn. T_base NULL -> GDD NULL.
+    -- KHÔNG để GREATEST(0, ... - NULL): Postgres GREATEST bỏ qua NULL nên sẽ ra 0
+    -- (một số đo GDD GIẢ, đội lốt "không tích nhiệt") thay vì NULL.
+    CASE
+        WHEN t_base_c IS NULL THEN NULL
+        ELSE ROUND(GREATEST(0, (max_temperature + min_temperature) / 2 - t_base_c), 2)
+    END AS daily_gdd,
     water_balance_applicable,
     CASE
         WHEN NOT water_balance_applicable
