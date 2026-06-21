@@ -43,6 +43,48 @@ def test_irrigation_need_mart_defines_fao56_contract() -> None:
     assert "water_balance_applicable" in normalized_sql
 
 
+def test_dim_agri_region_supports_multiple_crops_per_city() -> None:
+    """Grain (city, crop): bỏ ràng buộc 1 cây/tỉnh, thêm area_share nullable."""
+    sql_text = Path("sql/06_create_agriculture_schema.sql").read_text(encoding="utf-8")
+    normalized_sql = " ".join(sql_text.split())
+
+    # Khoá duy nhất theo cặp (city, crop), KHÔNG còn UNIQUE chỉ trên city.
+    assert "UNIQUE (city, crop)" in normalized_sql
+    assert "UNIQUE (city)" not in normalized_sql
+    # area_share nullable + CHECK (0,1]; crop_source ghi căn cứ hiện diện cây.
+    assert "area_share" in normalized_sql
+    assert "crop_source" in normalized_sql
+    assert "area_share IS NULL OR (area_share > 0 AND area_share <= 1)" in normalized_sql
+    # Migrate DB cũ: đổi tên main_crop_group -> crop.
+    assert "RENAME COLUMN main_crop_group TO crop" in normalized_sql
+
+
+def test_dim_agri_region_has_crop_role_with_one_primary_guard() -> None:
+    """crop_role ordinal (primary/secondary) + DB chặn >=2 primary/tỉnh."""
+    sql_text = Path("sql/06_create_agriculture_schema.sql").read_text(encoding="utf-8")
+    normalized_sql = " ".join(sql_text.split())
+
+    # Cột crop_role + CHECK chỉ cho primary/secondary (hoặc NULL khi migrate).
+    assert "crop_role" in normalized_sql
+    assert "crop_role IN ('primary', 'secondary')" in normalized_sql
+    # Partial unique index: mỗi tỉnh tối đa 1 'primary'.
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS uq_dim_agri_region_one_primary" in normalized_sql
+    assert "WHERE crop_role = 'primary'" in normalized_sql
+    # Migrate DB cũ: thêm cột crop_role.
+    assert "ADD COLUMN IF NOT EXISTS crop_role" in normalized_sql
+
+
+def test_irrigation_need_mart_joins_multi_crop_dim() -> None:
+    """Mart join theo ar.crop (đa cây/tỉnh), không còn cột main_crop_group."""
+    sql_text = Path("sql/08_create_irrigation_need_mart.sql").read_text(encoding="utf-8")
+    normalized_sql = " ".join(sql_text.split())
+
+    assert "c.crop = ar.crop" in normalized_sql
+    assert "main_crop_group" not in normalized_sql
+    # crop_role được expose ở mart để Power BI lọc "cây chủ lực".
+    assert "crop_role" in normalized_sql
+
+
 def test_crop_coefficients_are_sourced_in_dim_crop() -> None:
     """dim_crop phải seed Kc/T_base KÈM nguồn (chống 'số magic không nguồn')."""
     sql_text = Path("sql/06_create_agriculture_schema.sql").read_text(encoding="utf-8")
