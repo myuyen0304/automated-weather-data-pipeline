@@ -1,16 +1,21 @@
 -- ============================================================================
 -- 07_load_agriculture_schema.sql
--- Nạp mapping city -> region/crop từ staging vào dim_agri_region.
--- Idempotent: chạy lại sẽ cập nhật giá trị mapping thay đổi.
+-- Nạp mapping (city, crop) từ staging vào dim_agri_region.
+-- Grain đa cây/tỉnh -> TRUNCATE + INSERT lại toàn bộ cho idempotent và tránh dòng
+-- cũ sót lại khi cơ cấu cây của một tỉnh thay đổi (ON CONFLICT theo (city) cũ sẽ
+-- để lại rác). Không bảng nào tham chiếu agri_region_id (mart là VIEW) nên TRUNCATE
+-- an toàn.
 -- Lưu ý: dim_crop (hằng số nông học) được seed trong 06 (DDL), KHÔNG nạp ở đây.
 -- ============================================================================
 
-INSERT INTO dim_agri_region (city, agri_region, main_crop_group)
+TRUNCATE TABLE dim_agri_region RESTART IDENTITY;
+
+INSERT INTO dim_agri_region (city, agri_region, crop, crop_role, area_share, crop_source)
 SELECT
-    TRIM(city)            AS city,
-    TRIM(agri_region)     AS agri_region,
-    TRIM(main_crop_group) AS main_crop_group
-FROM stg_agri_region_mapping
-ON CONFLICT (city) DO UPDATE SET
-    agri_region = EXCLUDED.agri_region,
-    main_crop_group = EXCLUDED.main_crop_group;
+    TRIM(city)        AS city,
+    TRIM(agri_region) AS agri_region,
+    TRIM(crop)        AS crop,
+    TRIM(crop_role)   AS crop_role,
+    area_share,
+    crop_source
+FROM stg_agri_region_mapping;
