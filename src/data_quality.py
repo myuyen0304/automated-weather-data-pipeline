@@ -30,15 +30,33 @@ REQUIRED_DASHBOARD_COLUMNS = [
     "inserted_at",
 ]
 
+# Grain mapping = (city, crop): một tỉnh có thể nhiều cây. area_share/crop_source
+# là cột tuỳ chọn (validate nếu có), không bắt buộc.
 REQUIRED_AGRI_MAPPING_COLUMNS = [
     "city",
     "agri_region",
-    "main_crop_group",
+    "crop",
 ]
 
-# Cây trồng hợp lệ = đúng các crop được seed trong dim_crop (sql/12). Mapping trỏ
+# Cây trồng hợp lệ = đúng các crop được seed trong dim_crop (sql/06). Mapping trỏ
 # tới crop ngoài tập này sẽ bị JOIN rỗng ở mart -> chặn sớm tại DQ gate.
-KNOWN_CROPS = {"coffee", "vegetable", "rice"}
+# Cây hợp lệ = cây đã seed trong dim_crop (sql/06). DQ chạy thuần pandas TRƯỚC khi
+# nạp DB nên KHÔNG query được dim_crop -> phải hardcode, và set này PHẢI khớp đúng
+# seed dim_crop ở sql/06_create_agriculture_schema.sql. Cây không có Kc trích nguồn
+# (cao su/tiêu/điều...) cố ý KHÔNG đưa vào -> mapping tham chiếu sẽ bị chặn tại đây,
+# ép phải có nguồn trước khi thêm (chống "số magic không nguồn").
+KNOWN_CROPS = {
+    "coffee", "vegetable", "rice",
+    "maize", "soybean", "groundnut", "sugarcane",
+    "cassava", "sweet_potato", "banana", "citrus", "tea",
+}
+
+# crop_role: xếp hạng định tính cây trong tỉnh. Mỗi tỉnh phải có ĐÚNG 1 'primary'
+# (cây chủ lực) -> partial unique index chặn >=2, DQ gate ở đây chặn cả 0 và sai giá trị.
+VALID_CROP_ROLES = {"primary", "secondary"}
+
+# Dung sai khi kiểm tổng area_share của một city (chỉ khi MỌI dòng city đó có share).
+AREA_SHARE_SUM_TOLERANCE = 0.01
 
 EXPECTED_CITIES = {str(city["city"]) for city in CITIES}
 EXPECTED_CITY_COUNT = len(EXPECTED_CITIES)
@@ -227,9 +245,10 @@ def validate_agri_region_mapping(df: pd.DataFrame) -> int:
         if blank.any():
             errors.append(f"blank values in {column}: {int(blank.sum())}")
 
-    duplicate_cities = working.duplicated(subset=["city"], keep=False)
-    if duplicate_cities.any():
-        errors.append(f"duplicate city mapping rows: {int(duplicate_cities.sum())}")
+    # Grain (city, crop): cho phép nhiều cây/tỉnh, nhưng KHÔNG trùng đúng cặp.
+    duplicate_pairs = working.duplicated(subset=["city", "crop"], keep=False)
+    if duplicate_pairs.any():
+        errors.append(f"duplicate (city, crop) mapping rows: {int(duplicate_pairs.sum())}")
 
     observed_cities = set(working["city"].dropna().astype(str).str.strip())
     missing_cities = EXPECTED_CITIES - observed_cities
@@ -240,10 +259,71 @@ def validate_agri_region_mapping(df: pd.DataFrame) -> int:
         errors.append(f"unknown cities: {_format_values(unknown_cities)}")
 
     # Crop phải nằm trong dim_crop (KNOWN_CROPS) — nếu không, JOIN ở mart sẽ rỗng.
-    observed_crops = set(working["main_crop_group"].dropna().astype(str).str.strip())
+    observed_crops = set(working["crop"].dropna().astype(str).str.strip())
     unknown_crops = observed_crops - KNOWN_CROPS
     if unknown_crops:
         errors.append(f"unknown crops (not in dim_crop): {_format_values(unknown_crops)}")
+
+    # area_share là tuỳ chọn + NULLABLE (chưa có nguồn tỷ trọng theo 34 tỉnh mới).
+    # Chỉ validate khi có cột: giá trị non-null phải trong (0, 1]; KHÔNG bắt buộc
+    # non-null và KHÔNG tự chia đều. Tổng theo city chỉ kiểm khi MỌI dòng city đó
+    # có share (cấu hình đầy đủ) -> phải ~ 1.
+    if "area_share" in df.columns:
+        shares = pd.to_numeric(df["area_share"], errors="coerce")
+        present = shares.notna()
+        out_of_range = present & ((shares <= 0) | (shares > 1))
+        if out_of_range.any():
+            errors.append(f"area_share out of range (0,1]: {int(out_of_range.sum())}")
+
+        share_df = pd.DataFrame({
+            "city": working["city"].astype(str).str.strip(),
+            "share": shares,
+            "present": present,
+        })
+        for city, group in share_df.groupby("city"):
+            if group["present"].all():
+                total = float(group["share"].sum())
+                if abs(total - 1.0) > AREA_SHARE_SUM_TOLERANCE:
+                    errors.append(
+                        f"area_share for {city} sums to {total:.3f}, expected ~1.0"
+                    )
+
+    # crop_source là cơ chế trung thực cho "hiện diện cây" (vì area_share để NULL):
+    # nếu có cột thì mọi dòng phải có căn cứ, không để trống.
+    if "crop_source" in df.columns:
+        blank_source = _blank_string_mask(df["crop_source"])
+        if blank_source.any():
+            errors.append(
+                f"blank crop_source (su hien dien cay phai co can cu): {int(blank_source.sum())}"
+            )
+
+    # crop_role (nếu có cột): mọi dòng phải có giá trị trong {primary, secondary}, và
+    # MỖI tỉnh đúng 1 'primary'. Partial unique index chỉ chặn >=2 primary; ở đây
+    # chặn thêm 0 primary và giá trị lạ -> "đúng 1" được đảm bảo end-to-end.
+    if "crop_role" in df.columns:
+        roles = df["crop_role"].astype(str).str.strip()
+        blank_role = _blank_string_mask(df["crop_role"])
+        if blank_role.any():
+            errors.append(f"blank crop_role: {int(blank_role.sum())}")
+        invalid_role = ~blank_role & ~roles.isin(VALID_CROP_ROLES)
+        if invalid_role.any():
+            bad = set(roles[invalid_role])
+            errors.append(
+                f"invalid crop_role (phai la primary/secondary): {_format_values(bad)}"
+            )
+        role_df = pd.DataFrame({
+            "city": working["city"].astype(str).str.strip(),
+            "is_primary": roles.eq("primary"),
+        })
+        primary_counts = role_df.groupby("city")["is_primary"].sum()
+        wrong_primary = primary_counts[primary_counts != 1]
+        if not wrong_primary.empty:
+            formatted = ", ".join(
+                f"{city}={int(count)}" for city, count in wrong_primary.items()
+            )
+            errors.append(
+                f"each city needs exactly 1 primary crop, got: {formatted}"
+            )
 
     if errors:
         raise ValueError("Agriculture mapping data quality check failed: " + "; ".join(errors))
