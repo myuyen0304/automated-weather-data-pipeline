@@ -41,6 +41,10 @@ STAGING_COLUMNS = [
     "precipitation",
     "rain",
     "cloud_cover",
+    "et0_fao",
+    "soil_moisture",
+    "soil_temperature",
+    "shortwave_radiation",
     "weather_code",
     "weather_condition",
     "is_day",
@@ -73,8 +77,9 @@ def init_database(engine: Engine | None = None) -> None:
         "01_create_staging_table.sql",
         "02_create_dimensions.sql",
         "03_create_fact_table.sql",
+        "06_create_agriculture_schema.sql",    # agri mapping + dim_crop (FAO-56 hằng số có nguồn)
         "05_create_marts.sql",
-        "06_create_delivery_risk_mart.sql",  # view-trên-view, phải sau 05
+        "08_create_irrigation_need_mart.sql",  # mart tưới FAO-56, đọc mart 05 nên phải sau 05
     ):
         run_sql_file(SQL_DIR / name, engine)
 
