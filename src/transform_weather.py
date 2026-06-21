@@ -89,6 +89,12 @@ def normalize_weather_payload(
         "precipitation": current.get("precipitation") or 0,
         "rain": current.get("rain") or 0,
         "cloud_cover": current.get("cloud_cover"),
+        # Biến nông học (FAO-56): et0_fao mm/giờ, soil_moisture m3/m3, soil_temperature °C,
+        # shortwave_radiation W/m². Đổ thẳng xuống staging/fact để mart tưới dùng.
+        "et0_fao": current.get("et0_fao_evapotranspiration"),
+        "soil_moisture": current.get("soil_moisture_0_to_7cm"),
+        "soil_temperature": current.get("soil_temperature_0_to_7cm"),
+        "shortwave_radiation": current.get("shortwave_radiation"),
         "weather_code": weather_code,
         "weather_condition": WEATHER_CODE_MAP.get(weather_code, "Unknown"),
         "is_day": bool(current.get("is_day")),
