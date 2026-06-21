@@ -22,8 +22,22 @@ CREATE TABLE IF NOT EXISTS stg_weather_observations (
     precipitation        NUMERIC(6, 2),
     rain                 NUMERIC(6, 2),
     cloud_cover          INT,
+    -- Biến nông học (FAO-56). et0_fao mm/giờ, soil_moisture m3/m3 (0..1),
+    -- soil_temperature °C, shortwave_radiation W/m².
+    et0_fao              NUMERIC(6, 3),
+    soil_moisture        NUMERIC(5, 3),
+    soil_temperature     NUMERIC(5, 2),
+    shortwave_radiation  NUMERIC(7, 2),
     weather_code         INT,
     weather_condition    VARCHAR(100),
     is_day               BOOLEAN,
     inserted_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Migration cho DB đã tạo trước khi có biến nông học: thêm cột nếu chưa có
+-- (idempotent, không xoá dữ liệu cũ). Fresh DB đã có sẵn qua CREATE TABLE trên.
+ALTER TABLE stg_weather_observations
+    ADD COLUMN IF NOT EXISTS et0_fao             NUMERIC(6, 3),
+    ADD COLUMN IF NOT EXISTS soil_moisture       NUMERIC(5, 3),
+    ADD COLUMN IF NOT EXISTS soil_temperature    NUMERIC(5, 2),
+    ADD COLUMN IF NOT EXISTS shortwave_radiation NUMERIC(7, 2);
