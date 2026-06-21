@@ -21,7 +21,13 @@ SELECT
     MAX(f.wind_gusts)           AS max_wind_gusts,
     SUM(f.precipitation)        AS total_precipitation,
     SUM(f.rain)                 AS total_rain,
-    AVG(f.cloud_cover)          AS avg_cloud_cover
+    AVG(f.cloud_cover)          AS avg_cloud_cover,
+    -- Tổng hợp nông học theo ngày cho mart tưới FAO-56.
+    -- ET0 cộng 24 giờ = ET0 tham chiếu ngày (mm). soil_moisture/_temperature lấy TB.
+    SUM(f.et0_fao)              AS total_et0_mm,
+    AVG(f.soil_moisture)        AS avg_soil_moisture,
+    AVG(f.soil_temperature)     AS avg_soil_temperature,
+    AVG(f.shortwave_radiation)  AS avg_shortwave_radiation
 FROM fact_weather_observation f
 JOIN dim_location l ON f.location_id = l.location_id
 JOIN dim_date d     ON f.date_id = d.date_id

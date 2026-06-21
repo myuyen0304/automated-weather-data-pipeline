@@ -34,6 +34,7 @@ INSERT INTO fact_weather_observation (
     pressure_msl, surface_pressure,
     wind_speed, wind_direction, wind_gusts,
     precipitation, rain, cloud_cover,
+    et0_fao, soil_moisture, soil_temperature, shortwave_radiation,
     weather_code, weather_condition, is_day
 )
 SELECT
@@ -44,6 +45,7 @@ SELECT
     s.pressure_msl, s.surface_pressure,
     s.wind_speed, s.wind_direction, s.wind_gusts,
     s.precipitation, s.rain, s.cloud_cover,
+    s.et0_fao, s.soil_moisture, s.soil_temperature, s.shortwave_radiation,
     s.weather_code, s.weather_condition, s.is_day
 FROM stg_weather_observations s
 JOIN dim_location l ON l.city = s.city
@@ -60,6 +62,10 @@ ON CONFLICT (location_id, observation_time) DO UPDATE SET
     precipitation = EXCLUDED.precipitation,
     rain = EXCLUDED.rain,
     cloud_cover = EXCLUDED.cloud_cover,
+    et0_fao = EXCLUDED.et0_fao,
+    soil_moisture = EXCLUDED.soil_moisture,
+    soil_temperature = EXCLUDED.soil_temperature,
+    shortwave_radiation = EXCLUDED.shortwave_radiation,
     weather_code = EXCLUDED.weather_code,
     weather_condition = EXCLUDED.weather_condition,
     is_day = EXCLUDED.is_day,
