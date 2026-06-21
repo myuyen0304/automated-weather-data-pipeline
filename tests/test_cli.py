@@ -14,3 +14,15 @@ def test_extract_only_cannot_be_combined_with_load() -> None:
 
     assert result.returncode != 0
     assert "--extract-only cannot be combined with --load" in result.stderr
+
+
+def test_extract_only_cannot_be_combined_with_load_agriculture() -> None:
+    result = subprocess.run(
+        [sys.executable, "src/main.py", "--extract-only", "--load-agriculture"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "--extract-only cannot be combined with --load-agriculture" in result.stderr
