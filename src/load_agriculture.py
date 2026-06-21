@@ -7,7 +7,7 @@ Flow:
     staging -> dim_agri_region via sql/07_load_agriculture_schema.sql
 
 Lưu ý: hằng số nông học (Kc, T_base) nằm trong dim_crop, được SEED ngay trong
-sql/12 (DDL) với nguồn FAO-56 trích trong từng dòng — KHÔNG nạp từ CSV ở đây, để
+sql/06 (DDL) với nguồn FAO-56 trích trong từng dòng — KHÔNG nạp từ CSV ở đây, để
 không tái lập kiểu "số magic không nguồn".
 
 Chạy sau khi base weather schema tồn tại. Nếu gộp với --load, main.py chạy
@@ -25,7 +25,7 @@ from data_quality import validate_agri_region_mapping
 from load_postgres import get_engine, run_sql_file
 
 
-AGRI_MAPPING_COLUMNS = ["city", "agri_region", "main_crop_group"]
+AGRI_MAPPING_COLUMNS = ["city", "agri_region", "crop", "crop_role", "area_share", "crop_source"]
 
 
 def _read_required_csv(csv_path: Path, columns: list[str]) -> pd.DataFrame:
