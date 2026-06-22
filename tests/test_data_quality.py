@@ -200,7 +200,7 @@ def test_validate_agri_region_mapping_rejects_blank_crop_role() -> None:
 
 
 def test_validate_agri_region_mapping_rejects_two_primary_crops() -> None:
-    """Đa cây nhưng 2 dòng cùng primary -> sai (mỗi tỉnh đúng 1 cây chủ lực)."""
+    """Đa cây nhưng 2 dòng cùng primary -> sai (mỗi tỉnh đúng 1 'primary')."""
     base = _valid_agri_mapping_frame()
     extra = base.head(1).copy()
     extra["crop"] = "vegetable"
@@ -217,4 +217,28 @@ def test_validate_agri_region_mapping_rejects_zero_primary_crops() -> None:
     df.loc[0, "crop_role"] = "secondary"  # city đầu giờ 0 primary
 
     with pytest.raises(ValueError, match="exactly 1 primary"):
+        validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_accepts_optional_flagship_flag() -> None:
+    """is_flagship trực giao crop_role: 0 hoặc 1 flagship/tỉnh đều hợp lệ."""
+    df = _valid_agri_mapping_frame()
+    df["is_flagship"] = False
+    df.loc[0, "is_flagship"] = True  # 1 tỉnh đánh dấu cây chủ lực kinh tế
+
+    assert validate_agri_region_mapping(df) == len(CITIES)
+
+
+def test_validate_agri_region_mapping_rejects_two_flagship_in_one_city() -> None:
+    """Mỗi tỉnh TỐI ĐA 1 flagship: 2 dòng cùng city is_flagship=True -> sai."""
+    base = _valid_agri_mapping_frame()
+    base["is_flagship"] = False
+    base.loc[0, "is_flagship"] = True
+    extra = base.head(1).copy()
+    extra["crop"] = "vegetable"
+    extra["crop_role"] = "secondary"
+    extra["is_flagship"] = True  # city đầu giờ có 2 flagship
+    df = pd.concat([base, extra], ignore_index=True)
+
+    with pytest.raises(ValueError, match="at most 1 flagship"):
         validate_agri_region_mapping(df)

@@ -19,7 +19,8 @@ CREATE TABLE stg_agri_region_mapping (
     crop        VARCHAR(50),
     crop_role   VARCHAR(20),
     area_share  NUMERIC(4, 3),
-    crop_source TEXT
+    crop_source TEXT,
+    is_flagship BOOLEAN
 );
 
 -- Dimension mapping: grain = (city, crop). Một tỉnh có THỂ trồng nhiều cây
@@ -28,7 +29,7 @@ CREATE TABLE stg_agri_region_mapping (
 -- CHƯA có nguồn tỷ trọng theo ranh giới 34 tỉnh mới (Niên giám TK trễ ~1 năm và
 -- publish theo ranh giới cũ) -> để NULL, KHÔNG bịa/chia đều. crop_source ghi căn
 -- cứ cho sự HIỆN DIỆN của cây (định tính, có thể trích nguồn).
---   crop_role : xếp hạng ĐỊNH TÍNH cây trong tỉnh ('primary' = cây chủ lực,
+--   crop_role : xếp hạng ĐỊNH TÍNH cây trong tỉnh ('primary' = cây có diện tích gieo trồng lớn nhất tỉnh,
 --               'secondary' = cây phụ). Là ordinal nên trích nguồn được mà KHÔNG
 --               cần số (khác area_share). Mỗi tỉnh đúng 1 'primary' (xem partial
 --               unique index bên dưới). Khi có area_share thật -> primary = cây
@@ -41,6 +42,12 @@ CREATE TABLE IF NOT EXISTS dim_agri_region (
     crop_role       VARCHAR(20),
     area_share      NUMERIC(4, 3),
     crop_source     TEXT,
+    -- Cây chủ lực KINH TẾ tỉnh (định tính), TRỰC GIAO với crop_role: crop_role xếp
+    -- theo diện tích gieo trồng (NGTK), còn is_flagship đánh dấu cây đặc trưng/kinh
+    -- tế (vd cà phê Tây Nguyên) mà NGTK quốc gia KHÔNG có DT theo tỉnh. Mặc định
+    -- FALSE; chỉ TRUE khi có căn cứ ghi trong crop_source. Dùng để dashboard chọn
+    -- cây nổi bật, KHÔNG thay crop_role và KHÔNG suy ra area_share.
+    is_flagship     BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT uq_dim_agri_region_city_crop UNIQUE (city, crop),
     CONSTRAINT chk_dim_agri_region_area_share
         CHECK (area_share IS NULL OR (area_share > 0 AND area_share <= 1)),
@@ -63,6 +70,7 @@ END $$;
 ALTER TABLE dim_agri_region ADD COLUMN IF NOT EXISTS area_share NUMERIC(4, 3);
 ALTER TABLE dim_agri_region ADD COLUMN IF NOT EXISTS crop_source TEXT;
 ALTER TABLE dim_agri_region ADD COLUMN IF NOT EXISTS crop_role VARCHAR(20);
+ALTER TABLE dim_agri_region ADD COLUMN IF NOT EXISTS is_flagship BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE dim_agri_region DROP CONSTRAINT IF EXISTS uq_dim_agri_region_city;
 
 DO $$
@@ -89,7 +97,7 @@ BEGIN
     END IF;
 END $$;
 
--- Đúng 1 cây chủ lực/tỉnh: partial unique index chặn tỉnh có >=2 'primary'.
+-- Đúng 1 'primary' (cây diện tích lớn nhất)/tỉnh: partial unique index chặn tỉnh có >=2 'primary'.
 -- (Trường hợp 0 primary do DQ gate ở data_quality.py bắt — index không bắt được.)
 -- Đặt SAU migration ADD COLUMN crop_role để cột chắc chắn tồn tại trên cả DB cũ.
 -- Old rows crop_role NULL -> index rỗng -> apply an toan.

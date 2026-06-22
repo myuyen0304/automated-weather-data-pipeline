@@ -74,6 +74,23 @@ def test_dim_agri_region_has_crop_role_with_one_primary_guard() -> None:
     assert "ADD COLUMN IF NOT EXISTS crop_role" in normalized_sql
 
 
+def test_dim_agri_region_has_flagship_overlay() -> None:
+    """is_flagship: cây chủ lực kinh tế, trực giao crop_role, mặc định FALSE."""
+    schema_sql = " ".join(
+        Path("sql/06_create_agriculture_schema.sql").read_text(encoding="utf-8").split()
+    )
+    load_sql = " ".join(
+        Path("sql/07_load_agriculture_schema.sql").read_text(encoding="utf-8").split()
+    )
+
+    # Cột boolean mặc định FALSE (không phải tỉnh nào cũng có cây đặc trưng cần đánh dấu).
+    assert "is_flagship BOOLEAN NOT NULL DEFAULT FALSE" in schema_sql
+    # Migrate DB cũ: thêm cột is_flagship.
+    assert "ADD COLUMN IF NOT EXISTS is_flagship BOOLEAN NOT NULL DEFAULT FALSE" in schema_sql
+    # Loader chuyển is_flagship từ staging vào dim (COALESCE FALSE cho dòng cũ).
+    assert "is_flagship" in load_sql
+
+
 def test_irrigation_need_mart_joins_multi_crop_dim() -> None:
     """Mart join theo ar.crop (đa cây/tỉnh), không còn cột main_crop_group."""
     sql_text = Path("sql/08_create_irrigation_need_mart.sql").read_text(encoding="utf-8")
@@ -81,8 +98,10 @@ def test_irrigation_need_mart_joins_multi_crop_dim() -> None:
 
     assert "c.crop = ar.crop" in normalized_sql
     assert "main_crop_group" not in normalized_sql
-    # crop_role được expose ở mart để Power BI lọc "cây chủ lực".
+    # crop_role được expose ở mart để Power BI lọc "cây diện tích lớn nhất".
     assert "crop_role" in normalized_sql
+    # is_flagship expose để dashboard lọc cây chủ lực kinh tế (vd cà phê Tây Nguyên).
+    assert "is_flagship" in normalized_sql
 
 
 def test_crop_coefficients_are_sourced_in_dim_crop() -> None:
