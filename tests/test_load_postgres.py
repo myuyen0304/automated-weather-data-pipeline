@@ -115,3 +115,5 @@ def test_crop_coefficients_are_sourced_in_dim_crop() -> None:
     assert "FAO-56" in normalized_sql
     # Lúa nước phải được đánh dấu KHÔNG áp dụng cân bằng nước.
     assert "'rice', 1.20, 10.0, FALSE" in normalized_sql
+    # Cao su (cây chủ lực Đông Nam Bộ) seed kèm nguồn FAO-56, áp dụng cân bằng nước.
+    assert "'rubber', 1.00, NULL, TRUE" in normalized_sql

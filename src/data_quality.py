@@ -48,7 +48,7 @@ REQUIRED_AGRI_MAPPING_COLUMNS = [
 KNOWN_CROPS = {
     "coffee", "vegetable", "rice",
     "maize", "soybean", "groundnut", "sugarcane",
-    "cassava", "sweet_potato", "banana", "citrus", "tea",
+    "cassava", "sweet_potato", "banana", "citrus", "tea", "rubber",
 }
 
 # crop_role: xếp hạng định tính cây trong tỉnh. Mỗi tỉnh phải có ĐÚNG 1 'primary'

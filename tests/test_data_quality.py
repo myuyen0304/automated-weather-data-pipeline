@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from config import CITIES
+from config import AGRICULTURE_DATA_DIR, CITIES
 from data_quality import (
     validate_agri_region_mapping,
     validate_weather_observations,
@@ -242,3 +242,28 @@ def test_validate_agri_region_mapping_rejects_two_flagship_in_one_city() -> None
 
     with pytest.raises(ValueError, match="at most 1 flagship"):
         validate_agri_region_mapping(df)
+
+
+def test_real_agri_mapping_csv_passes_and_flags_expected_crops() -> None:
+    """File mapping THẬT phải qua DQ gate và giữ đúng bộ cây chủ lực kinh tế.
+
+    Các unit test khác dùng fixture tổng hợp; test này khóa chính file CSV nạp
+    vào DB để một lần sửa tay không lặng lẽ phá flagship hoặc thêm crop lạ.
+    """
+    df = pd.read_csv(AGRICULTURE_DATA_DIR / "agri_region_mapping.csv")
+    validate_agri_region_mapping(df)  # raise nếu CSV thật vi phạm bất kỳ rule nào
+
+    flagship_pairs = {
+        (row.city, row.crop)
+        for row in df[df["is_flagship"].astype(str).str.lower().isin(
+            {"true", "1", "yes"}
+        )].itertuples()
+    }
+    assert flagship_pairs == {
+        ("Gia Lai", "coffee"),
+        ("Lam Dong", "coffee"),
+        ("Dak Lak", "coffee"),
+        ("Thai Nguyen", "tea"),
+        ("Vinh Long", "citrus"),
+        ("Dong Nai", "rubber"),
+    }

@@ -168,7 +168,10 @@ VALUES
      'T_base GDD cây có múi không thống nhất -> để NULL, KHÔNG đoán.'),
     ('tea', 1.00, NULL, TRUE,
      'FAO-56 Table 12: tea non-shaded Kc_mid 1.00 (chè không che bóng; có che bóng = 1.15).',
-     'T_base GDD chè không thống nhất -> để NULL, KHÔNG đoán.')
+     'T_base GDD chè không thống nhất -> để NULL, KHÔNG đoán.'),
+    ('rubber', 1.00, NULL, TRUE,
+     'FAO-56 Table 12: rubber trees Kc_mid 1.00 (Kc_ini 0.95, Kc_end 1.00); cây công nghiệp lâu năm.',
+     'T_base GDD cao su không thống nhất trong tài liệu -> để NULL, KHÔNG đoán (chỉ ảnh hưởng daily_gdd, không ảnh hưởng irrigation_need).')
 ON CONFLICT (crop) DO UPDATE SET
     kc_mid = EXCLUDED.kc_mid,
     t_base_c = EXCLUDED.t_base_c,
