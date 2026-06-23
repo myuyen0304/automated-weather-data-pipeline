@@ -32,8 +32,9 @@ def main() -> None:
         "--load-agriculture",
         action="store_true",
         help=(
-            "Also load agriculture mapping/rules and refresh the rule-based "
-            "weather advisory mart. If --load is set, weather loads first."
+            "Also load the agriculture city->region/crop mapping and refresh "
+            "dim_agri_region (feeds the FAO-56 mart_irrigation_need view). "
+            "If --load is set, weather loads first."
         ),
     )
     parser.add_argument(

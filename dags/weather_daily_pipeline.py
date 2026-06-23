@@ -97,14 +97,22 @@ def weather_daily_pipeline():
     def load_postgres_marts() -> None:
         run_project_command(["scripts/load_cleaned_to_postgres.py"])
 
+    @task
+    def load_agriculture() -> None:
+        # Refresh dim_agri_region từ mapping CSV (idempotent TRUNCATE+INSERT).
+        # Đặt sau load weather để chuỗi đọc tự nhiên; mart_irrigation_need là VIEW
+        # nên thứ tự dim/fact không đổi kết quả.
+        run_project_command(["src/main.py", "--load-agriculture"])
+
     schema = init_schema()
     target_date = resolve_archive_target_date()
     backfilled = backfill_archive_day(target_date)
     transformed = transform_archive_day(target_date)
     validated = validate_cleaned_data()
     loaded = load_postgres_marts()
+    loaded_agri = load_agriculture()
 
-    schema >> target_date >> backfilled >> transformed >> validated >> loaded
+    schema >> target_date >> backfilled >> transformed >> validated >> loaded >> loaded_agri
 
 
 weather_daily_pipeline()
