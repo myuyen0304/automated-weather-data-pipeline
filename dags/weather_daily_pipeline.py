@@ -102,7 +102,10 @@ def weather_daily_pipeline():
         # Refresh dim_agri_region từ mapping CSV (idempotent TRUNCATE+INSERT).
         # Đặt sau load weather để chuỗi đọc tự nhiên; mart_irrigation_need là VIEW
         # nên thứ tự dim/fact không đổi kết quả.
-        run_project_command(["src/main.py", "--load-agriculture"])
+        # --skip-extract: agri chỉ nạp mapping city->region/crop, KHÔNG cần fetch forecast.
+        # Thiếu nó thì main.py extract lại forecast hôm nay cho cả 34 city qua API và ghi đè
+        # weather_observations.csv — side effect thừa, không đụng tới fact.
+        run_project_command(["src/main.py", "--skip-extract", "--load-agriculture"])
 
     schema = init_schema()
     target_date = resolve_archive_target_date()
