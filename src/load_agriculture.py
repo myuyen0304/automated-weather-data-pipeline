@@ -25,7 +25,9 @@ from data_quality import validate_agri_region_mapping
 from load_postgres import get_engine, run_sql_file
 
 
-AGRI_MAPPING_COLUMNS = ["city", "agri_region", "crop", "crop_role", "area_share", "crop_source"]
+AGRI_MAPPING_COLUMNS = [
+    "city", "agri_region", "crop", "crop_role", "area_share", "crop_source", "is_flagship",
+]
 
 
 def _read_required_csv(csv_path: Path, columns: list[str]) -> pd.DataFrame:
