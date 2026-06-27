@@ -10,12 +10,13 @@
 
 TRUNCATE TABLE dim_agri_region RESTART IDENTITY;
 
-INSERT INTO dim_agri_region (city, agri_region, crop, crop_role, area_share, crop_source)
+INSERT INTO dim_agri_region (city, agri_region, crop, crop_role, area_share, crop_source, is_flagship)
 SELECT
     TRIM(city)        AS city,
     TRIM(agri_region) AS agri_region,
     TRIM(crop)        AS crop,
     TRIM(crop_role)   AS crop_role,
     area_share,
-    crop_source
+    crop_source,
+    COALESCE(is_flagship, FALSE) AS is_flagship
 FROM stg_agri_region_mapping;

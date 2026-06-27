@@ -48,11 +48,11 @@ REQUIRED_AGRI_MAPPING_COLUMNS = [
 KNOWN_CROPS = {
     "coffee", "vegetable", "rice",
     "maize", "soybean", "groundnut", "sugarcane",
-    "cassava", "sweet_potato", "banana", "citrus", "tea",
+    "cassava", "sweet_potato", "banana", "citrus", "tea", "rubber",
 }
 
 # crop_role: xếp hạng định tính cây trong tỉnh. Mỗi tỉnh phải có ĐÚNG 1 'primary'
-# (cây chủ lực) -> partial unique index chặn >=2, DQ gate ở đây chặn cả 0 và sai giá trị.
+# (cây có diện tích gieo trồng lớn nhất) -> partial unique index chặn >=2, DQ gate ở đây chặn cả 0 và sai giá trị.
 VALID_CROP_ROLES = {"primary", "secondary"}
 
 # Dung sai khi kiểm tổng area_share của một city (chỉ khi MỌI dòng city đó có share).
@@ -323,6 +323,33 @@ def validate_agri_region_mapping(df: pd.DataFrame) -> int:
             )
             errors.append(
                 f"each city needs exactly 1 primary crop, got: {formatted}"
+            )
+
+    # is_flagship (nếu có cột): cây chủ lực KINH TẾ tỉnh, trực giao crop_role. Giá trị
+    # phải boolean-like; mỗi tỉnh TỐI ĐA 1 flagship (0 cũng hợp lệ -> không phải tỉnh
+    # nào cũng có cây đặc trưng cần đánh dấu). KHÔNG ép phải có nguồn riêng ở đây vì
+    # căn cứ flagship ghi chung trong crop_source (đã bắt non-blank ở trên).
+    if "is_flagship" in df.columns:
+        norm = df["is_flagship"].astype(str).str.strip().str.lower()
+        truthy = {"true", "1", "yes"}
+        falsy = {"false", "0", "no", "nan", "none", ""}
+        invalid_flag = ~norm.isin(truthy | falsy)
+        if invalid_flag.any():
+            errors.append(
+                f"invalid is_flagship (phai boolean true/false): {_format_values(set(norm[invalid_flag]))}"
+            )
+        flag_df = pd.DataFrame({
+            "city": working["city"].astype(str).str.strip(),
+            "is_flag": norm.isin(truthy),
+        })
+        flag_counts = flag_df.groupby("city")["is_flag"].sum()
+        too_many_flags = flag_counts[flag_counts > 1]
+        if not too_many_flags.empty:
+            formatted = ", ".join(
+                f"{city}={int(count)}" for city, count in too_many_flags.items()
+            )
+            errors.append(
+                f"each city allows at most 1 flagship crop, got: {formatted}"
             )
 
     if errors:

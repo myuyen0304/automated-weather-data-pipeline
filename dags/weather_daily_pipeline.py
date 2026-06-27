@@ -97,14 +97,25 @@ def weather_daily_pipeline():
     def load_postgres_marts() -> None:
         run_project_command(["scripts/load_cleaned_to_postgres.py"])
 
+    @task
+    def load_agriculture() -> None:
+        # Refresh dim_agri_region từ mapping CSV (idempotent TRUNCATE+INSERT).
+        # Đặt sau load weather để chuỗi đọc tự nhiên; mart_irrigation_need là VIEW
+        # nên thứ tự dim/fact không đổi kết quả.
+        # --skip-extract: agri chỉ nạp mapping city->region/crop, KHÔNG cần fetch forecast.
+        # Thiếu nó thì main.py extract lại forecast hôm nay cho cả 34 city qua API và ghi đè
+        # weather_observations.csv — side effect thừa, không đụng tới fact.
+        run_project_command(["src/main.py", "--skip-extract", "--load-agriculture"])
+
     schema = init_schema()
     target_date = resolve_archive_target_date()
     backfilled = backfill_archive_day(target_date)
     transformed = transform_archive_day(target_date)
     validated = validate_cleaned_data()
     loaded = load_postgres_marts()
+    loaded_agri = load_agriculture()
 
-    schema >> target_date >> backfilled >> transformed >> validated >> loaded
+    schema >> target_date >> backfilled >> transformed >> validated >> loaded >> loaded_agri
 
 
 weather_daily_pipeline()

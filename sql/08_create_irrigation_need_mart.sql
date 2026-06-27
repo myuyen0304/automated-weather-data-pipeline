@@ -4,8 +4,12 @@
 --
 -- Grain = city + full_date + crop. Một tỉnh trồng nhiều cây -> nhiều dòng/ngày
 -- (mỗi cây một dòng); KHÔNG rollup trọng số cấp tỉnh vì area_share hiện NULL.
--- crop_role ('primary'/'secondary') cho phép Power BI lọc nhanh "cây chủ lực" của
+-- crop_role ('primary'/'secondary') cho phép Power BI lọc nhanh "cây diện tích lớn nhất" của
 -- mỗi tỉnh (mặc định 1 dòng/tỉnh) mà không cần area_share.
+-- is_flagship (TRUE/FALSE): đánh dấu cây chủ lực KINH TẾ tỉnh (vd cà phê Tây Nguyên,
+-- cây mà NGTK quốc gia không có DT theo tỉnh nên không lên primary diện tích). Dashboard
+-- có thể lọc is_flagship để hiển thị nhu cầu tưới của cây đặc trưng (cà phê có cân bằng
+-- nước nên ra số tưới, khác lúa nước). Trực giao crop_role, không thay thế nó.
 -- Mô hình: ETc = ET0 x Kc ; nhu cầu tưới = max(0, ETc - mưa hiệu dụng).
 --   - ET0 (total_et0_mm): ET tham chiếu ngày = tổng 24 giờ et0_fao (Open-Meteo).
 --   - Kc (kc_mid): hệ số cây trồng, trích FAO-56 Table 12 (xem dim_crop.kc_source).
@@ -32,6 +36,7 @@ WITH base AS (
         ar.agri_region,
         ar.crop AS crop,
         ar.crop_role,
+        ar.is_flagship,
         ar.area_share,
         w.full_date,
         w.max_temperature,
@@ -53,6 +58,7 @@ SELECT
     agri_region,
     crop,
     crop_role,
+    is_flagship,
     area_share,
     full_date,
     total_et0_mm,

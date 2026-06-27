@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from config import CITIES
+from config import AGRICULTURE_DATA_DIR, CITIES
 from data_quality import (
     validate_agri_region_mapping,
     validate_weather_observations,
@@ -200,7 +200,7 @@ def test_validate_agri_region_mapping_rejects_blank_crop_role() -> None:
 
 
 def test_validate_agri_region_mapping_rejects_two_primary_crops() -> None:
-    """Đa cây nhưng 2 dòng cùng primary -> sai (mỗi tỉnh đúng 1 cây chủ lực)."""
+    """Đa cây nhưng 2 dòng cùng primary -> sai (mỗi tỉnh đúng 1 'primary')."""
     base = _valid_agri_mapping_frame()
     extra = base.head(1).copy()
     extra["crop"] = "vegetable"
@@ -218,3 +218,52 @@ def test_validate_agri_region_mapping_rejects_zero_primary_crops() -> None:
 
     with pytest.raises(ValueError, match="exactly 1 primary"):
         validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_accepts_optional_flagship_flag() -> None:
+    """is_flagship trực giao crop_role: 0 hoặc 1 flagship/tỉnh đều hợp lệ."""
+    df = _valid_agri_mapping_frame()
+    df["is_flagship"] = False
+    df.loc[0, "is_flagship"] = True  # 1 tỉnh đánh dấu cây chủ lực kinh tế
+
+    assert validate_agri_region_mapping(df) == len(CITIES)
+
+
+def test_validate_agri_region_mapping_rejects_two_flagship_in_one_city() -> None:
+    """Mỗi tỉnh TỐI ĐA 1 flagship: 2 dòng cùng city is_flagship=True -> sai."""
+    base = _valid_agri_mapping_frame()
+    base["is_flagship"] = False
+    base.loc[0, "is_flagship"] = True
+    extra = base.head(1).copy()
+    extra["crop"] = "vegetable"
+    extra["crop_role"] = "secondary"
+    extra["is_flagship"] = True  # city đầu giờ có 2 flagship
+    df = pd.concat([base, extra], ignore_index=True)
+
+    with pytest.raises(ValueError, match="at most 1 flagship"):
+        validate_agri_region_mapping(df)
+
+
+def test_real_agri_mapping_csv_passes_and_flags_expected_crops() -> None:
+    """File mapping THẬT phải qua DQ gate và giữ đúng bộ cây chủ lực kinh tế.
+
+    Các unit test khác dùng fixture tổng hợp; test này khóa chính file CSV nạp
+    vào DB để một lần sửa tay không lặng lẽ phá flagship hoặc thêm crop lạ.
+    """
+    df = pd.read_csv(AGRICULTURE_DATA_DIR / "agri_region_mapping.csv")
+    validate_agri_region_mapping(df)  # raise nếu CSV thật vi phạm bất kỳ rule nào
+
+    flagship_pairs = {
+        (row.city, row.crop)
+        for row in df[df["is_flagship"].astype(str).str.lower().isin(
+            {"true", "1", "yes"}
+        )].itertuples()
+    }
+    assert flagship_pairs == {
+        ("Gia Lai", "coffee"),
+        ("Lam Dong", "coffee"),
+        ("Dak Lak", "coffee"),
+        ("Thai Nguyen", "tea"),
+        ("Vinh Long", "citrus"),
+        ("Dong Nai", "rubber"),
+    }

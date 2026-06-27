@@ -1,74 +1,236 @@
 city,agri_region,crop,crop_role_hint,area_ha,as_of_year,source_provinces_summed,source
-Hanoi,Red River Delta,rice,primary,,,,
-Hanoi,Red River Delta,vegetable,secondary,,,,
-Hai Phong,Red River Delta,rice,primary,,,,
-Hai Phong,Red River Delta,vegetable,secondary,,,,
-Hue,North Central Coast,rice,primary,,,,
-Hue,North Central Coast,vegetable,secondary,,,,
-Da Nang,South Central Coast,rice,primary,,,,
-Da Nang,South Central Coast,vegetable,secondary,,,,
-Ho Chi Minh City,Southeast,rice,primary,,,,
-Ho Chi Minh City,Southeast,vegetable,secondary,,,,
-Can Tho,Mekong Delta,rice,primary,,,,
-Can Tho,Mekong Delta,vegetable,secondary,,,,
-Tuyen Quang,Northern Mountains,rice,primary,,,,
-Tuyen Quang,Northern Mountains,vegetable,secondary,,,,
-Lao Cai,Northern Mountains,rice,primary,,,,
-Lao Cai,Northern Mountains,vegetable,secondary,,,,
-Thai Nguyen,Northern Mountains,rice,primary,,,,
-Thai Nguyen,Northern Mountains,vegetable,secondary,,,,
-Phu Tho,Northern Mountains,rice,primary,,,,
-Phu Tho,Northern Mountains,vegetable,secondary,,,,
-Bac Ninh,Red River Delta,rice,primary,,,,
-Bac Ninh,Red River Delta,vegetable,secondary,,,,
-Hung Yen,Red River Delta,rice,primary,,,,
-Hung Yen,Red River Delta,vegetable,secondary,,,,
-Ninh Binh,Red River Delta,rice,primary,,,,
-Ninh Binh,Red River Delta,vegetable,secondary,,,,
-Quang Ninh,Red River Delta,rice,primary,,,,
-Quang Ninh,Red River Delta,vegetable,secondary,,,,
-Cao Bang,Northern Mountains,rice,primary,,,,
-Cao Bang,Northern Mountains,vegetable,secondary,,,,
-Lang Son,Northern Mountains,rice,primary,,,,
-Lang Son,Northern Mountains,vegetable,secondary,,,,
-Lai Chau,Northern Mountains,rice,primary,,,,
-Lai Chau,Northern Mountains,vegetable,secondary,,,,
-Dien Bien,Northern Mountains,rice,primary,,,,
-Dien Bien,Northern Mountains,vegetable,secondary,,,,
-Dien Bien,Northern Mountains,coffee,secondary,,,,
-Son La,Northern Mountains,rice,primary,,,,
-Son La,Northern Mountains,vegetable,secondary,,,,
-Son La,Northern Mountains,coffee,secondary,,,,
-Thanh Hoa,North Central Coast,rice,primary,,,,
-Thanh Hoa,North Central Coast,vegetable,secondary,,,,
-Nghe An,North Central Coast,rice,primary,,,,
-Nghe An,North Central Coast,vegetable,secondary,,,,
-Ha Tinh,North Central Coast,rice,primary,,,,
-Ha Tinh,North Central Coast,vegetable,secondary,,,,
-Quang Tri,North Central Coast,rice,primary,,,,
-Quang Tri,North Central Coast,vegetable,secondary,,,,
-Quang Ngai,South Central Coast,rice,primary,,,,
-Quang Ngai,South Central Coast,vegetable,secondary,,,,
-Gia Lai,Central Highlands,rice,secondary,,,,
-Gia Lai,Central Highlands,vegetable,secondary,,,,
-Gia Lai,Central Highlands,coffee,primary,,,,
-Khanh Hoa,South Central Coast,rice,primary,,,,
-Khanh Hoa,South Central Coast,vegetable,secondary,,,,
-Lam Dong,Central Highlands,rice,secondary,,,,
-Lam Dong,Central Highlands,vegetable,secondary,,,,
-Lam Dong,Central Highlands,coffee,primary,,,,
-Dak Lak,Central Highlands,rice,secondary,,,,
-Dak Lak,Central Highlands,vegetable,secondary,,,,
-Dak Lak,Central Highlands,coffee,primary,,,,
-Dong Nai,Southeast,rice,primary,,,,
-Dong Nai,Southeast,vegetable,secondary,,,,
-Tay Ninh,Southeast,rice,primary,,,,
-Tay Ninh,Southeast,vegetable,secondary,,,,
-Vinh Long,Mekong Delta,rice,primary,,,,
-Vinh Long,Mekong Delta,vegetable,secondary,,,,
-Dong Thap,Mekong Delta,rice,primary,,,,
-Dong Thap,Mekong Delta,vegetable,secondary,,,,
-An Giang,Mekong Delta,rice,primary,,,,
-An Giang,Mekong Delta,vegetable,secondary,,,,
-Ca Mau,Mekong Delta,rice,primary,,,,
-Ca Mau,Mekong Delta,vegetable,secondary,,,,
+Hanoi,Red River Delta,rice,primary,152900,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hanoi,Red River Delta,maize,secondary,12100,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hanoi,Red River Delta,groundnut,secondary,2063,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hanoi,Red River Delta,sweet_potato,secondary,1306,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hanoi,Red River Delta,cassava,secondary,525,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hanoi,Red River Delta,sugarcane,secondary,8,2024,Hà Nội (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hanoi,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Hai Phong,Red River Delta,rice,primary,163200,2024,Hải Phòng + Hải Dương,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hai Phong,Red River Delta,maize,secondary,4300,2024,Hải Phòng + Hải Dương,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hai Phong,Red River Delta,sweet_potato,secondary,1474,2024,Hải Phòng + Hải Dương,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hai Phong,Red River Delta,groundnut,secondary,988,2024,Hải Phòng + Hải Dương,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hai Phong,Red River Delta,sugarcane,secondary,75,2024,Hải Phòng + Hải Dương,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hai Phong,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Hue,North Central Coast,rice,primary,53500,2024,Huế (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hue,North Central Coast,cassava,secondary,3722,2024,Huế (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hue,North Central Coast,groundnut,secondary,2292,2024,Huế (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hue,North Central Coast,maize,secondary,1500,2024,Huế (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hue,North Central Coast,sweet_potato,secondary,629,2024,Huế (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hue,North Central Coast,sugarcane,secondary,137,2024,Huế (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hue,North Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Da Nang,South Central Coast,rice,primary,87600,2024,Đà Nẵng + Quảng Nam,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Da Nang,South Central Coast,maize,secondary,11800,2024,Đà Nẵng + Quảng Nam,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Da Nang,South Central Coast,groundnut,secondary,9745,2024,Đà Nẵng + Quảng Nam,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Da Nang,South Central Coast,cassava,secondary,8542,2024,Quảng Nam,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Da Nang,South Central Coast,sweet_potato,secondary,1957,2024,Đà Nẵng + Quảng Nam,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Da Nang,South Central Coast,sugarcane,secondary,432,2024,Đà Nẵng + Quảng Nam,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Da Nang,South Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Ho Chi Minh City,Southeast,rice,primary,46800,2024,TP. Hồ Chí Minh + Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ho Chi Minh City,Southeast,cassava,secondary,9253,2024,Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Ho Chi Minh City,Southeast,maize,secondary,6900,2024,TP. Hồ Chí Minh + Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ho Chi Minh City,Southeast,groundnut,secondary,1356,2024,TP. Hồ Chí Minh + Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Ho Chi Minh City,Southeast,sugarcane,secondary,732,2024,TP. Hồ Chí Minh + Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ho Chi Minh City,Southeast,sweet_potato,secondary,198,2024,TP. Hồ Chí Minh + Bình Dương + Bà Rịa - Vũng Tàu,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ho Chi Minh City,Southeast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Can Tho,Mekong Delta,rice,primary,727000,2024,Cần Thơ + Sóc Trăng + Hậu Giang,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Can Tho,Mekong Delta,sugarcane,secondary,7669,2024,Cần Thơ + Sóc Trăng + Hậu Giang,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Can Tho,Mekong Delta,maize,secondary,5300,2024,Cần Thơ + Sóc Trăng + Hậu Giang,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Can Tho,Mekong Delta,sweet_potato,secondary,463,2024,Cần Thơ + Sóc Trăng + Hậu Giang,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Can Tho,Mekong Delta,groundnut,secondary,126,2024,Cần Thơ + Sóc Trăng,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Can Tho,Mekong Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Tuyen Quang,Northern Mountains,rice,primary,78900,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Tuyen Quang,Northern Mountains,maize,secondary,73200,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Tuyen Quang,Northern Mountains,groundnut,secondary,13427,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Tuyen Quang,Northern Mountains,cassava,secondary,6850,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Tuyen Quang,Northern Mountains,sweet_potato,secondary,3334,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Tuyen Quang,Northern Mountains,sugarcane,secondary,3096,2024,Tuyên Quang + Hà Giang,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Tuyen Quang,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Lao Cai,Northern Mountains,rice,primary,76700,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lao Cai,Northern Mountains,maize,secondary,61600,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lao Cai,Northern Mountains,cassava,secondary,14999,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lao Cai,Northern Mountains,sweet_potato,secondary,3794,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lao Cai,Northern Mountains,groundnut,secondary,3493,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lao Cai,Northern Mountains,sugarcane,secondary,518,2024,Lào Cai + Yên Bái,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lao Cai,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Thai Nguyen,Northern Mountains,rice,primary,89500,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Thai Nguyen,Northern Mountains,maize,secondary,28900,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Thai Nguyen,Northern Mountains,groundnut,secondary,3306,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Thai Nguyen,Northern Mountains,sweet_potato,secondary,2673,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Thai Nguyen,Northern Mountains,cassava,secondary,1294,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Thai Nguyen,Northern Mountains,sugarcane,secondary,175,2024,Thái Nguyên + Bắc Kạn,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Thai Nguyen,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Phu Tho,Northern Mountains,rice,primary,148600,2024,Phú Thọ + Vĩnh Phúc + Hòa Bình,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Phu Tho,Northern Mountains,maize,secondary,56500,2024,Phú Thọ + Vĩnh Phúc + Hòa Bình,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Phu Tho,Northern Mountains,cassava,secondary,13147,2024,Phú Thọ + Hòa Bình,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Phu Tho,Northern Mountains,groundnut,secondary,8537,2024,Phú Thọ + Vĩnh Phúc + Hòa Bình,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Phu Tho,Northern Mountains,sugarcane,secondary,6451,2024,Phú Thọ + Vĩnh Phúc + Hòa Bình,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Phu Tho,Northern Mountains,sweet_potato,secondary,5864,2024,Phú Thọ + Vĩnh Phúc + Hòa Bình,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Phu Tho,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Bac Ninh,Red River Delta,rice,primary,152300,2024,Bắc Ninh + Bắc Giang,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Bac Ninh,Red River Delta,maize,secondary,11800,2024,Bắc Ninh + Bắc Giang,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Bac Ninh,Red River Delta,groundnut,secondary,7958,2024,Bắc Ninh + Bắc Giang,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Bac Ninh,Red River Delta,sweet_potato,secondary,3707,2024,Bắc Ninh + Bắc Giang,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Bac Ninh,Red River Delta,cassava,secondary,994,2024,Bắc Giang,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Bac Ninh,Red River Delta,sugarcane,secondary,157,2024,Bắc Ninh + Bắc Giang,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Bac Ninh,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Hung Yen,Red River Delta,rice,primary,197400,2024,Hưng Yên + Thái Bình,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hung Yen,Red River Delta,maize,secondary,12700,2024,Hưng Yên + Thái Bình,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Hung Yen,Red River Delta,sweet_potato,secondary,3306,2024,Hưng Yên + Thái Bình,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hung Yen,Red River Delta,groundnut,secondary,3148,2024,Hưng Yên + Thái Bình,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Hung Yen,Red River Delta,sugarcane,secondary,44,2024,Hưng Yên + Thái Bình,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Hung Yen,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Ninh Binh,Red River Delta,rice,primary,267800,2024,Ninh Bình + Hà Nam + Nam Định,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ninh Binh,Red River Delta,maize,secondary,11900,2024,Ninh Bình + Hà Nam + Nam Định,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ninh Binh,Red River Delta,groundnut,secondary,6987,2024,Ninh Bình + Hà Nam + Nam Định,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Ninh Binh,Red River Delta,sweet_potato,secondary,1807,2024,Ninh Bình + Hà Nam + Nam Định,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ninh Binh,Red River Delta,sugarcane,secondary,437,2024,Ninh Bình + Hà Nam + Nam Định,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ninh Binh,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Quang Ninh,Red River Delta,rice,primary,36800,2024,Quảng Ninh (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Ninh,Red River Delta,maize,secondary,6100,2024,Quảng Ninh (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Ninh,Red River Delta,sweet_potato,secondary,2803,2024,Quảng Ninh (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Ninh,Red River Delta,groundnut,secondary,1765,2024,Quảng Ninh (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Quang Ninh,Red River Delta,sugarcane,secondary,297,2024,Quảng Ninh (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Ninh,Red River Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Cao Bang,Northern Mountains,maize,primary,40600,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Cao Bang,Northern Mountains,rice,secondary,30300,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Cao Bang,Northern Mountains,cassava,secondary,3973,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Cao Bang,Northern Mountains,sugarcane,secondary,2856,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Cao Bang,Northern Mountains,groundnut,secondary,1590,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Cao Bang,Northern Mountains,sweet_potato,secondary,795,2024,Cao Bằng (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Cao Bang,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Lang Son,Northern Mountains,rice,primary,47800,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lang Son,Northern Mountains,maize,secondary,20000,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lang Son,Northern Mountains,groundnut,secondary,2587,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lang Son,Northern Mountains,sweet_potato,secondary,1360,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lang Son,Northern Mountains,cassava,secondary,902,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lang Son,Northern Mountains,sugarcane,secondary,155,2024,Lạng Sơn (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lang Son,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Lai Chau,Northern Mountains,rice,primary,31400,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lai Chau,Northern Mountains,maize,secondary,19100,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lai Chau,Northern Mountains,cassava,secondary,8634,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lai Chau,Northern Mountains,groundnut,secondary,974,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lai Chau,Northern Mountains,sugarcane,secondary,194,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lai Chau,Northern Mountains,sweet_potato,secondary,174,2024,Lai Châu (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lai Chau,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Dien Bien,Northern Mountains,rice,primary,54600,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dien Bien,Northern Mountains,maize,secondary,24900,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dien Bien,Northern Mountains,cassava,secondary,16834,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dien Bien,Northern Mountains,groundnut,secondary,1047,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dien Bien,Northern Mountains,sweet_potato,secondary,361,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dien Bien,Northern Mountains,sugarcane,secondary,84,2024,Điện Biên (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dien Bien,Northern Mountains,coffee,secondary,,,,"Cà phê KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 (chỉ tổng quốc gia, bảng 236) -> area_ha NULL; giữ làm cây phụ vì hiện diện thực tế (Arabica Tây Bắc / Robusta Tây Nguyên)."
+Dien Bien,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Son La,Northern Mountains,maize,primary,74400,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Son La,Northern Mountains,rice,secondary,46500,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Son La,Northern Mountains,cassava,secondary,44176,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Son La,Northern Mountains,sugarcane,secondary,10136,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Son La,Northern Mountains,groundnut,secondary,1094,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Son La,Northern Mountains,sweet_potato,secondary,253,2024,Sơn La (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Son La,Northern Mountains,coffee,secondary,,,,"Cà phê KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 (chỉ tổng quốc gia, bảng 236) -> area_ha NULL; giữ làm cây phụ vì hiện diện thực tế (Arabica Tây Bắc / Robusta Tây Nguyên)."
+Son La,Northern Mountains,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Thanh Hoa,North Central Coast,rice,primary,225800,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Thanh Hoa,North Central Coast,maize,secondary,38500,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Thanh Hoa,North Central Coast,sugarcane,secondary,14638,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Thanh Hoa,North Central Coast,cassava,secondary,14358,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Thanh Hoa,North Central Coast,groundnut,secondary,8168,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Thanh Hoa,North Central Coast,sweet_potato,secondary,4982,2024,Thanh Hóa (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Thanh Hoa,North Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Nghe An,North Central Coast,rice,primary,168100,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Nghe An,North Central Coast,maize,secondary,46200,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Nghe An,North Central Coast,sugarcane,secondary,22641,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Nghe An,North Central Coast,cassava,secondary,12466,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Nghe An,North Central Coast,groundnut,secondary,9457,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Nghe An,North Central Coast,sweet_potato,secondary,3255,2024,Nghệ An (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Nghe An,North Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Ha Tinh,North Central Coast,rice,primary,104400,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ha Tinh,North Central Coast,maize,secondary,14400,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ha Tinh,North Central Coast,groundnut,secondary,6981,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Ha Tinh,North Central Coast,sweet_potato,secondary,3380,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ha Tinh,North Central Coast,cassava,secondary,2482,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Ha Tinh,North Central Coast,sugarcane,secondary,140,2024,Hà Tĩnh (giu nguyen),"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ha Tinh,North Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Quang Tri,North Central Coast,rice,primary,104000,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Tri,North Central Coast,cassava,secondary,20086,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Quang Tri,North Central Coast,maize,secondary,8800,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Tri,North Central Coast,groundnut,secondary,6080,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Quang Tri,North Central Coast,sweet_potato,secondary,4046,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Tri,North Central Coast,sugarcane,secondary,215,2024,Quảng Trị + Quảng Bình,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Tri,North Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Quang Ngai,South Central Coast,rice,primary,96700,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Ngai,South Central Coast,cassava,secondary,53113,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Quang Ngai,South Central Coast,maize,secondary,14300,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Quang Ngai,South Central Coast,groundnut,secondary,6473,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Quang Ngai,South Central Coast,sugarcane,secondary,1719,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Ngai,South Central Coast,sweet_potato,secondary,1026,2024,Quảng Ngãi + Kon Tum,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Quang Ngai,South Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Gia Lai,Central Highlands,rice,primary,167300,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Gia Lai,Central Highlands,cassava,secondary,86621,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Gia Lai,Central Highlands,maize,secondary,46300,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Gia Lai,Central Highlands,sugarcane,secondary,43662,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Gia Lai,Central Highlands,groundnut,secondary,14219,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Gia Lai,Central Highlands,sweet_potato,secondary,7874,2024,Gia Lai + Bình Định,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Gia Lai,Central Highlands,coffee,secondary,,,,"Cà phê KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 (chỉ tổng quốc gia, bảng 236) -> area_ha NULL; giữ làm cây phụ vì hiện diện thực tế (Arabica Tây Bắc / Robusta Tây Nguyên)."
+Gia Lai,Central Highlands,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Khanh Hoa,South Central Coast,rice,primary,90300,2024,Khánh Hòa + Ninh Thuận,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Khanh Hoa,South Central Coast,maize,secondary,16500,2024,Khánh Hòa + Ninh Thuận,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Khanh Hoa,South Central Coast,sugarcane,secondary,10137,2024,Khánh Hòa + Ninh Thuận,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Khanh Hoa,South Central Coast,cassava,secondary,2597,2024,Khánh Hòa,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Khanh Hoa,South Central Coast,groundnut,secondary,1122,2024,Khánh Hòa + Ninh Thuận,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Khanh Hoa,South Central Coast,sweet_potato,secondary,313,2024,Khánh Hòa + Ninh Thuận,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Khanh Hoa,South Central Coast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Lam Dong,Central Highlands,rice,primary,165300,2024,Lâm Đồng + Đắk Nông + Bình Thuận,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lam Dong,Central Highlands,maize,secondary,59000,2024,Lâm Đồng + Đắk Nông + Bình Thuận,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Lam Dong,Central Highlands,cassava,secondary,29357,2024,Đắk Nông + Bình Thuận,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lam Dong,Central Highlands,groundnut,secondary,8849,2024,Lâm Đồng + Đắk Nông + Bình Thuận,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Lam Dong,Central Highlands,sweet_potato,secondary,8680,2024,Lâm Đồng + Đắk Nông + Bình Thuận,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lam Dong,Central Highlands,sugarcane,secondary,1017,2024,Lâm Đồng + Đắk Nông + Bình Thuận,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Lam Dong,Central Highlands,coffee,secondary,,,,"Cà phê KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 (chỉ tổng quốc gia, bảng 236) -> area_ha NULL; giữ làm cây phụ vì hiện diện thực tế (Arabica Tây Bắc / Robusta Tây Nguyên)."
+Lam Dong,Central Highlands,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Dak Lak,Central Highlands,rice,primary,172600,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dak Lak,Central Highlands,maize,secondary,82200,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dak Lak,Central Highlands,cassava,secondary,65957,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dak Lak,Central Highlands,sugarcane,secondary,43502,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dak Lak,Central Highlands,sweet_potato,secondary,5939,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dak Lak,Central Highlands,groundnut,secondary,5473,2024,Đắk Lắk + Phú Yên,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dak Lak,Central Highlands,coffee,secondary,,,,"Cà phê KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 (chỉ tổng quốc gia, bảng 236) -> area_ha NULL; giữ làm cây phụ vì hiện diện thực tế (Arabica Tây Bắc / Robusta Tây Nguyên)."
+Dak Lak,Central Highlands,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Dong Nai,Southeast,rice,primary,61700,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dong Nai,Southeast,maize,secondary,36400,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dong Nai,Southeast,cassava,secondary,22815,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dong Nai,Southeast,sugarcane,secondary,3026,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dong Nai,Southeast,groundnut,secondary,1082,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dong Nai,Southeast,sweet_potato,secondary,436,2024,Đồng Nai + Bình Phước,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dong Nai,Southeast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Tay Ninh,Southeast,rice,primary,688900,2024,Tây Ninh + Long An,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Tay Ninh,Southeast,cassava,secondary,62660,2024,Tây Ninh + Long An,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Tay Ninh,Southeast,sugarcane,secondary,7749,2024,Tây Ninh + Long An,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Tay Ninh,Southeast,maize,secondary,5800,2024,Tây Ninh + Long An,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Tay Ninh,Southeast,groundnut,secondary,3134,2024,Tây Ninh + Long An,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Tay Ninh,Southeast,sweet_potato,secondary,55,2024,Tây Ninh + Long An,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Tay Ninh,Southeast,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Vinh Long,Mekong Delta,rice,primary,327200,2024,Vĩnh Long + Bến Tre + Trà Vinh,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Vinh Long,Mekong Delta,maize,secondary,5400,2024,Vĩnh Long + Bến Tre + Trà Vinh,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Vinh Long,Mekong Delta,groundnut,secondary,4384,2024,Vĩnh Long + Bến Tre + Trà Vinh,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Vinh Long,Mekong Delta,sweet_potato,secondary,2627,2024,Vĩnh Long + Bến Tre + Trà Vinh,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Vinh Long,Mekong Delta,sugarcane,secondary,1704,2024,Vĩnh Long + Bến Tre + Trà Vinh,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Vinh Long,Mekong Delta,cassava,secondary,174,2024,Vĩnh Long,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Vinh Long,Mekong Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Dong Thap,Mekong Delta,rice,primary,616200,2024,Đồng Tháp + Tiền Giang,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dong Thap,Mekong Delta,maize,secondary,7300,2024,Đồng Tháp + Tiền Giang,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Dong Thap,Mekong Delta,sweet_potato,secondary,763,2024,Đồng Tháp + Tiền Giang,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dong Thap,Mekong Delta,groundnut,secondary,246,2024,Đồng Tháp + Tiền Giang,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+Dong Thap,Mekong Delta,sugarcane,secondary,127,2024,Đồng Tháp + Tiền Giang,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Dong Thap,Mekong Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+An Giang,Mekong Delta,rice,primary,1344300,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+An Giang,Mekong Delta,maize,secondary,6100,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+An Giang,Mekong Delta,cassava,secondary,1123,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 230 ""Diện tích gieo trồng sắn phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+An Giang,Mekong Delta,sugarcane,secondary,1094,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+An Giang,Mekong Delta,sweet_potato,secondary,1020,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+An Giang,Mekong Delta,groundnut,secondary,294,2024,An Giang + Kiên Giang,"NGTK 2024, bảng 234 ""Diện tích gieo trồng lạc phân theo địa phương"" (cột 2024 Sơ bộ, ha) [bảng ""trong đó"": tỉnh cũ không liệt kê coi như 0]"
+An Giang,Mekong Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).
+Ca Mau,Mekong Delta,rice,primary,305000,2024,Cà Mau + Bạc Liêu,"NGTK 2024, bảng 213 ""Diện tích gieo trồng lúa cả năm phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ca Mau,Mekong Delta,maize,secondary,1000,2024,Cà Mau + Bạc Liêu,"NGTK 2024, bảng 225 ""Diện tích gieo trồng ngô phân theo địa phương"" (cột 2024 Sơ bộ, nghìn ha)"
+Ca Mau,Mekong Delta,sugarcane,secondary,458,2024,Cà Mau + Bạc Liêu,"NGTK 2024, bảng 232 ""Diện tích gieo trồng mía phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ca Mau,Mekong Delta,sweet_potato,secondary,345,2024,Cà Mau + Bạc Liêu,"NGTK 2024, bảng 228 ""Diện tích gieo trồng khoai lang phân theo địa phương"" (cột 2024 Sơ bộ, ha)"
+Ca Mau,Mekong Delta,vegetable,secondary,,,,Rau KHÔNG có bảng diện tích theo tỉnh trong NGTK 2024 -> area_ha NULL; giữ làm cây phụ (trồng phổ biến toàn quốc; thương phẩm tập trung Lâm Đồng/ven đô).

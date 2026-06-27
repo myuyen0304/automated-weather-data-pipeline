@@ -1,5 +1,11 @@
 # Automated Weather Data Pipeline
 
+> **What it is** — An end-to-end data pipeline that turns free public weather data for 34 Vietnamese provinces into **region-level irrigation guidance** using the **FAO-56** agronomic model (`ETc = ET0 × Kc − effective rainfall`).
+>
+> **How it's built** — `extract → transform → load` into a PostgreSQL star schema, guarded by a data-quality gate and idempotent loads, orchestrated daily by Apache Airflow, with optional MinIO/S3 object storage and pytest + GitHub Actions CI.
+>
+> **What it's honest about** — every agronomic constant is sourced to FAO-56; fields with no published source (e.g. per-province crop area) are left **NULL rather than fabricated**; flooded paddy rice is modelled as *water balance not applicable* instead of a misleading 0 mm.
+
 ## 1. Project Overview
 
 **Automated Weather Data Pipeline** is a beginner-friendly Data Engineering project that automatically collects verified historical hourly weather data from the **Open-Meteo Archive API**, stores raw JSON responses, transforms and cleans the data using Python, loads the result into PostgreSQL, applies SQL-based data modelling with fact and dimension tables, and builds analytical marts for Power BI dashboards.
@@ -51,10 +57,71 @@ Open-Meteo Archive API
     -> Power BI dashboard
 ```
 
+The full flow, including the FAO-56 agriculture branch, as a graph:
+
+```mermaid
+flowchart LR
+    A["Open-Meteo API<br/>Forecast + Archive"] --> B["Raw hourly JSON<br/>date / hour / city"]
+    B --> C["Python + pandas<br/>transform & normalize"]
+    C --> D{"Data quality gate<br/>src/data_quality.py"}
+    D --> E[("PostgreSQL staging")]
+    E --> F["Star schema<br/>dim_location / dim_date / fact_weather_observation"]
+    F --> G["Weather marts<br/>daily / weekly summary"]
+    F --> H["FAO-56 mart<br/>mart_irrigation_need"]
+    AG["dim_crop + dim_agri_region<br/>NGTK 2024 + FAO-56 Kc"] --> H
+    G --> I["Power BI"]
+    H --> I
+    J["Apache Airflow<br/>daily 08:30 ICT"] -. orchestrates .-> A
+```
+
 The scheduled DAG is `weather_daily_pipeline`. It runs at `08:30 Asia/Ho_Chi_Minh`,
 loads the Archive target date `today - 5 days`, validates the cleaned CSV, and then
 loads PostgreSQL marts. The manual DAG `weather_archive_backfill` is used for
 historical reloads.
+
+---
+
+## ⭐ Highlight: FAO-56 Irrigation Advisory (agriculture layer)
+
+Beyond charting weather, the pipeline answers an operational question:
+**"Which region needs irrigation today — how many mm — or has rainfall already covered it?"**
+
+It applies the **FAO-56** crop-water model (Allen et al., 1998, *Irrigation & Drainage Paper 56*)
+inside a SQL mart (`sql/08_create_irrigation_need_mart.sql`):
+
+- **ETc = ET0 × Kc** — reference evapotranspiration (Open-Meteo `et0_fao_evapotranspiration`,
+  summed over 24 h) times a crop coefficient.
+- **Irrigation need = max(0, ETc − effective rainfall)**.
+- **GDD = max(0, (Tmax + Tmin) / 2 − T_base)** for crops that have a sourced base temperature.
+
+Every coefficient is **sourced, never invented**: `dim_crop` stores `kc_mid` with a `kc_source`
+citing FAO-56 Table 12, and `t_base_c` is left NULL for crops where FAO-56 gives no base temperature.
+
+Two **independent** crop axes, with no fabricated area ratios:
+
+| Axis | Meaning | Source |
+|---|---|---|
+| `crop_role = 'primary'` | the **largest sown-area crop** of each province (1 per province) | NGTK 2024 national statistics, per-province sown-area tables |
+| `is_flagship = TRUE` | the **economically signature crop** of a region (coffee — Central Highlands, tea — Thai Nguyen, citrus, rubber) | qualitative; FAO-56 Kc exists, but national stats have **no per-province area** |
+
+> These are orthogonal: a province can be `primary = rice` (most area) **and** `is_flagship = coffee`
+> (its signature crop) at the same time. `primary` is strictly "largest sown area" — **not** a claim
+> about which crop matters economically.
+
+Honesty by design (these caveats are the point — this is a data-integrity showcase, not a shipped product):
+
+- **Flooded paddy rice → `irrigation_need_mm = NULL`** (`water_balance_applicable = FALSE`):
+  ponded fields are not modelled by ET0×Kc, so the mart returns NULL, not a misleading 0 mm.
+- **`area_share` is deliberately NULL** where no per-province source exists for the post-2025
+  34-province boundaries — un-fabricated, *not* "missing data".
+- The output is **region-level decision support, not validated against field water measurements
+  or yield.** Effective rainfall is approximated by daily total rain, so on heavy-rain days the
+  irrigation need is a lower bound.
+
+`mart_irrigation_need` (grain: `city × full_date × crop`) exposes `crop`, `crop_role`,
+`is_flagship`, `total_et0_mm`, `kc_mid`, `etc_mm`, `effective_rain_mm`, `irrigation_need_mm`,
+`daily_gdd`, `avg_soil_moisture`, `water_balance_applicable`, and a plain-language
+`advisory_message` — ready for a Power BI irrigation page.
 
 ---
 
@@ -142,22 +209,31 @@ automated-weather-data-pipeline/
 │   ├── raw/
 │   │   └── open-meteo/
 │   │       └── date=YYYY-MM-DD/hour=HH/<city>.json
-│   └── cleaned/
-│       ├── weather_observations.csv     # transformed output for PostgreSQL load
-│       └── weather_observations.parquet # columnar analytics copy
+│   ├── cleaned/
+│   │   ├── weather_observations.csv     # transformed output for PostgreSQL load
+│   │   └── weather_observations.parquet # columnar analytics copy
+│   └── agriculture/
+│       └── agri_region_mapping.csv      # city -> crop mapping (crop_role, is_flagship) -> dim_agri_region
 |
 ├── sql/
 │   ├── 01_create_staging_table.sql
 │   ├── 02_create_dimensions.sql
 │   ├── 03_create_fact_table.sql
 │   ├── 04_load_star_schema.sql          # runs every batch (staging -> star schema)
-│   └── 05_create_marts.sql
+│   ├── 05_create_marts.sql
+│   ├── 06_create_agriculture_schema.sql # dim_crop (FAO-56 Kc) + dim_agri_region + staging
+│   ├── 07_load_agriculture_schema.sql   # staging -> dim_agri_region
+│   └── 08_create_irrigation_need_mart.sql # FAO-56 mart_irrigation_need
 |
 ├── src/
 │   ├── config.py
-│   ├── extract_weather.py
+│   ├── extract_weather.py               # Forecast API (today)
+│   ├── backfill_weather.py              # Archive API (historical, ERA5)
 │   ├── transform_weather.py
+│   ├── data_quality.py                  # validation gate (weather + agri mapping)
 │   ├── load_postgres.py
+│   ├── load_agriculture.py              # loads agri_region_mapping.csv -> dim_agri_region
+│   ├── object_storage.py                # optional MinIO / S3 mirror
 │   └── main.py
 |
 ├── scripts/
@@ -377,6 +453,17 @@ CREATE TABLE fact_weather_observation (
 );
 ```
 
+### 8.4 Agriculture dimensions (FAO-56 layer)
+
+The agriculture layer adds two dimensions consumed by `mart_irrigation_need` (see the Highlight section):
+
+- **`dim_crop`** — one row per crop, with the FAO-56 crop coefficient `kc_mid` and a `kc_source`
+  citation, `t_base_c` (nullable — only where a sourced base temperature exists), and
+  `water_balance_applicable` (FALSE for flooded paddy rice).
+- **`dim_agri_region`** — `city × crop` grain, with `crop_role` (`primary` = largest sown-area crop
+  per NGTK 2024 / `secondary`), `is_flagship` (economically signature crop), and a nullable
+  `area_share` left NULL where no per-province source exists.
+
 ---
 
 ## 9. Analytics Mart
@@ -420,6 +507,12 @@ This mart can be used to answer questions such as:
 - How does humidity change over time?
 - Which city has the highest average wind speed?
 - How does pressure change by city and date?
+
+A second mart, **`mart_irrigation_need`** (FAO-56), is built on top of `mart_daily_weather_summary`
+joined to `dim_crop` and `dim_agri_region`. It answers operational questions instead of descriptive
+ones — *which region needs irrigation today and how many mm* — and handles flooded paddy rice as
+`NULL` (water balance not applicable). See the Highlight section near the top for the model and its
+honesty caveats.
 
 ---
 
@@ -607,11 +700,12 @@ loading into PostgreSQL only happens with `--load`.
 |---|---|
 | (none) | Extract from Open-Meteo Forecast API, then transform the current batch to cleaned CSV |
 | `--load` | Also load cleaned data into PostgreSQL and rebuild the star schema; scheduled automation uses Archive first, then `--skip-extract --date <target-date> --load` |
-| `--init-db` | Create the schema (staging, dims, fact, marts), then exit |
+| `--init-db` | Create the full schema (staging, dims, fact, weather marts, agriculture schema + FAO-56 irrigation mart), then exit |
 | `--skip-extract` | Transform existing raw JSON without calling the API |
-| `--extract-only` | Only fetch raw JSON, skip transform (cannot combine with `--load`) |
+| `--extract-only` | Only fetch raw JSON, skip transform (cannot combine with `--load` / `--load-agriculture`) |
 | `--date YYYY-MM-DD` | Transform raw JSON from one date partition |
 | `--all-raw` | Reprocess the entire raw history instead of the latest batch |
+| `--load-agriculture` | Load `data/agriculture/agri_region_mapping.csv` into `dim_agri_region` (validated by the data-quality gate); the FAO-56 `mart_irrigation_need` view then reads from it |
 
 ---
 
@@ -623,11 +717,16 @@ Before loading cleaned data into PostgreSQL, the pipeline validates the batch wi
 Current checks include:
 
 - Required dashboard/staging columns are present.
-- All configured 34 cities are present for each observation date.
+- All configured 34 cities are present for each observation date, each with a complete 24-hour set.
 - `humidity` and `cloud_cover` are between 0 and 100.
 - `temperature` is within a realistic range.
 - `precipitation`, `rain`, `wind_speed`, and `wind_gusts` are non-negative.
 - `(city, observation_time)` rows are not duplicated.
+
+The agriculture mapping has its own gate (`validate_agri_region_mapping`) before
+`--load-agriculture`: every configured city is present, `(city, crop)` pairs are unique, crops must
+exist in `dim_crop`, exactly one `primary` crop per city, at most one `is_flagship` per city, and
+`area_share` (when present) is within `(0, 1]`. A failure aborts the load.
 
 Historical and scheduled daily catch-up are available through the Open-Meteo Archive API:
 
@@ -799,8 +898,16 @@ Create the schema once (staging, dimensions, fact, marts):
 python src/main.py --init-db
 ```
 
-This runs `sql/01`, `02`, `03`, and `05`. Note: `sql/04_load_star_schema.sql` is **not** run here —
-it loads data from staging into the star schema and runs on every `--load` batch instead.
+This runs `sql/01`, `02`, `03`, then the agriculture schema `06`, the weather marts `05`, and the
+FAO-56 irrigation mart `08` (in that dependency order). Note: `sql/04_load_star_schema.sql` and
+`sql/07_load_agriculture_schema.sql` are **not** run here — they load data from staging and run on
+every `--load` / `--load-agriculture` batch instead.
+
+To populate the agriculture dimension and the FAO-56 mart, run once after `--init-db`:
+
+```bash
+python src/main.py --load-agriculture
+```
 
 ### Step 8: Run the pipeline manually
 
@@ -865,6 +972,8 @@ Possible improvements for future versions:
 - [Done] Save cleaned data as Parquet files alongside the CSV load artifact.
 - Use dbt for data modelling and testing.
 - Expand data quality checks with Great Expectations or Pandera if the project grows.
+- **Publish a live demo** — see [`DEPLOY.md`](DEPLOY.md) for a free Supabase + Power BI path that
+  puts the data and dashboard online without an on-premises gateway.
 - Deploy PostgreSQL on AWS RDS.
 - Deploy Airflow on a small cloud VM or a managed Airflow platform.
 - Add forecasting models for temperature or rainfall prediction.
@@ -890,7 +999,9 @@ This project demonstrates the following Data Engineering skills:
 - Airflow DAG orchestration
 - Automated testing and CI
 - SQL analytics
+- Domain modelling with FAO-56 (crop evapotranspiration, GDD) in SQL
+- Multi-crop dimensional modelling (orthogonal `crop_role` / `is_flagship` axes)
+- Data-integrity discipline (sourced constants, NULL over fabrication)
 - Dashboard design
 - Pipeline automation
 - Environment variable management
-- Portfolio project documentation
