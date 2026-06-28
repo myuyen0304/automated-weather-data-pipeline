@@ -2,3 +2,12 @@ FROM apache/airflow:3.2.2-python3.11
 
 COPY requirements.txt /tmp/weather-project-requirements.txt
 RUN pip install --no-cache-dir -r /tmp/weather-project-requirements.txt
+
+# dbt cài vào VENV CÔ LẬP, KHÔNG vào môi trường Airflow: dbt-core và Airflow
+# pin chồng nhau jinja2/click/pydantic, `pip install dbt` thẳng có thể hạ cấp
+# dep của Airflow và làm hỏng scheduler. Venv riêng -> không đụng nhau. DAG gọi
+# thẳng /home/airflow/dbt-venv/bin/dbt (xem dags/weather_daily_pipeline.py).
+# Đặt dưới $HOME của airflow (uid 50000) vì /opt thuộc root -> user airflow không
+# ghi được; venv ở home thì build được mà không cần đổi sang USER root.
+RUN python -m venv /home/airflow/dbt-venv \
+    && /home/airflow/dbt-venv/bin/pip install --no-cache-dir "dbt-postgres>=1.7,<2.0"

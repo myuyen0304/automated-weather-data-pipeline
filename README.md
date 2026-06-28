@@ -87,7 +87,7 @@ Beyond charting weather, the pipeline answers an operational question:
 **"Which region needs irrigation today — how many mm — or has rainfall already covered it?"**
 
 It applies the **FAO-56** crop-water model (Allen et al., 1998, *Irrigation & Drainage Paper 56*)
-inside a SQL mart (`sql/08_create_irrigation_need_mart.sql`):
+inside a dbt mart (`weather_dbt/models/marts/mart_irrigation_need.sql`):
 
 - **ETc = ET0 × Kc** — reference evapotranspiration (Open-Meteo `et0_fao_evapotranspiration`,
   summed over 24 h) times a crop coefficient.
@@ -220,10 +220,9 @@ automated-weather-data-pipeline/
 │   ├── 02_create_dimensions.sql
 │   ├── 03_create_fact_table.sql
 │   ├── 04_load_star_schema.sql          # runs every batch (staging -> star schema)
-│   ├── 05_create_marts.sql
 │   ├── 06_create_agriculture_schema.sql # dim_crop (FAO-56 Kc) + dim_agri_region + staging
-│   ├── 07_load_agriculture_schema.sql   # staging -> dim_agri_region
-│   └── 08_create_irrigation_need_mart.sql # FAO-56 mart_irrigation_need
+│   └── 07_load_agriculture_schema.sql   # staging -> dim_agri_region
+│   # marts moved to dbt -> weather_dbt/models/marts/ (mart_daily/weekly, mart_irrigation_need)
 |
 ├── src/
 │   ├── config.py

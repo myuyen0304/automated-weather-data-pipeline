@@ -1,0 +1,20 @@
+version: 2
+
+# Các bảng star schema do tầng EL nạp (sql/01-04 weather, sql/06-07 agriculture).
+# dbt CHỈ ĐỌC chúng qua source(), KHÔNG build/không sở hữu. Đây là ranh giới dbt:
+# fact + dim = source; chỉ mart (sql/05, sql/08) mới là model của dbt.
+sources:
+  - name: weather_core
+    description: >
+      Star schema + agriculture dimensions loaded by the Python/SQL EL layer
+      (sql/01-04, 06-07). Managed outside dbt; consumed read-only here.
+    schema: public
+    tables:
+      - name: fact_weather_observation
+        description: "Hourly weather fact, idempotent upsert on (location_id, observation_time)."
+      - name: dim_location
+      - name: dim_date
+      - name: dim_crop
+        description: "FAO-56 agronomic constants (kc_mid, t_base_c) seeded in sql/06."
+      - name: dim_agri_region
+        description: "city -> region -> crop mapping, grain (city, crop)."

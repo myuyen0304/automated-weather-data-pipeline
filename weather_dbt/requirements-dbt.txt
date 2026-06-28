@@ -1,0 +1,4 @@
+# Tách riêng khỏi requirements.txt: dbt kéo theo cây phụ thuộc lớn mà tầng
+# extract/transform/load lõi KHÔNG cần. Cài riêng khi làm việc với dbt:
+#     pip install -r weather_dbt/requirements-dbt.txt
+dbt-postgres>=1.7,<2.0

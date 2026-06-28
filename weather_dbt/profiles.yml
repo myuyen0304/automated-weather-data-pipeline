@@ -1,0 +1,25 @@
+# profiles.yml — kết nối tới weather DB (docker-compose.yml, port 5432).
+#
+# LƯU Ý: dbt đọc BIẾN MÔI TRƯỜNG của OS, KHÔNG tự đọc file .env như config.py
+# (python-dotenv). Default bên dưới khớp docker-compose.yml + .env.example nên
+# `dbt debug --profiles-dir .` chạy được ngay với DB local mà không cần export gì.
+# Nếu bạn dùng credential khác, export DB_HOST/DB_PORT/... trước khi chạy dbt.
+#
+# File này nằm trong project (không phải ~/.dbt) -> chạy dbt với cờ:
+#     dbt debug --profiles-dir .
+#     dbt run   --profiles-dir .
+# hoặc set DBT_PROFILES_DIR trỏ vào thư mục weather_dbt.
+
+weather_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DB_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('DB_PORT', '5432') | int }}"
+      user: "{{ env_var('DB_USER', 'postgres') }}"
+      password: "{{ env_var('DB_PASSWORD', 'postgres') }}"
+      dbname: "{{ env_var('DB_NAME', 'weather_db') }}"
+      schema: public
+      threads: 4
+      connect_timeout: 10
