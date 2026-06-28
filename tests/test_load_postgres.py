@@ -5,7 +5,9 @@ from pathlib import Path
 import load_postgres
 
 
-def test_init_database_runs_irrigation_mart_after_base_marts(monkeypatch) -> None:
+def test_init_database_creates_source_tables_only(monkeypatch) -> None:
+    """init chỉ tạo bảng nguồn (fact + dim). Tầng mart (05, 08) đã chuyển sang
+    dbt (weather_dbt/, `dbt build`) nên KHÔNG còn chạy trong init_database."""
     calls: list[tuple[str, object | None]] = []
     engine = object()
 
@@ -21,19 +23,24 @@ def test_init_database_runs_irrigation_mart_after_base_marts(monkeypatch) -> Non
         ("02_create_dimensions.sql", engine),
         ("03_create_fact_table.sql", engine),
         ("06_create_agriculture_schema.sql", engine),
-        ("05_create_marts.sql", engine),
-        ("08_create_irrigation_need_mart.sql", engine),
     ]
+    # Mart không còn được tạo trong init -> dbt sở hữu tầng này.
+    assert ("05_create_marts.sql", engine) not in calls
+    assert ("08_create_irrigation_need_mart.sql", engine) not in calls
 
 
-def test_irrigation_need_mart_defines_fao56_contract() -> None:
-    sql_text = Path("sql/08_create_irrigation_need_mart.sql").read_text(encoding="utf-8")
+def test_irrigation_need_model_defines_fao56_contract() -> None:
+    """Hợp đồng FAO-56 giờ nằm ở dbt model (nguồn sự thật của mart), KHÔNG còn
+    sql/08 — file đó đã xoá khi tầng mart chuyển sang dbt (weather_dbt/)."""
+    sql_text = Path("weather_dbt/models/marts/mart_irrigation_need.sql").read_text(encoding="utf-8")
     normalized_sql = " ".join(sql_text.split())
 
-    assert "CREATE OR REPLACE VIEW mart_irrigation_need AS" in sql_text
-    assert "FROM mart_daily_weather_summary" in normalized_sql
-    assert "JOIN dim_agri_region" in normalized_sql
-    assert "JOIN dim_crop" in normalized_sql
+    # Materialized thành view (thay CREATE VIEW của sql cũ).
+    assert "{{ config(materialized='view') }}" in normalized_sql
+    # mart_daily qua ref() -> dbt tự suy thứ tự; dim qua source() (EL nạp ngoài dbt).
+    assert "FROM {{ ref('mart_daily_weather_summary') }}" in normalized_sql
+    assert "JOIN {{ source('weather_core', 'dim_agri_region') }}" in normalized_sql
+    assert "JOIN {{ source('weather_core', 'dim_crop') }}" in normalized_sql
     # ETc = ET0 x Kc, nhu cầu tưới = max(0, ETc - mưa hiệu dụng).
     assert "total_et0_mm * c.kc_mid" in normalized_sql
     assert "AS etc_mm" in normalized_sql
@@ -91,9 +98,9 @@ def test_dim_agri_region_has_flagship_overlay() -> None:
     assert "is_flagship" in load_sql
 
 
-def test_irrigation_need_mart_joins_multi_crop_dim() -> None:
-    """Mart join theo ar.crop (đa cây/tỉnh), không còn cột main_crop_group."""
-    sql_text = Path("sql/08_create_irrigation_need_mart.sql").read_text(encoding="utf-8")
+def test_irrigation_need_model_joins_multi_crop_dim() -> None:
+    """Model join theo ar.crop (đa cây/tỉnh), không còn cột main_crop_group."""
+    sql_text = Path("weather_dbt/models/marts/mart_irrigation_need.sql").read_text(encoding="utf-8")
     normalized_sql = " ".join(sql_text.split())
 
     assert "c.crop = ar.crop" in normalized_sql
