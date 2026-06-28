@@ -1,0 +1,37 @@
+version: 2
+
+# Test KHAI BÁO (thay test Python canh tay). Chỉ dùng test built-in của dbt
+# (not_null, unique, relationships, accepted_values) -> KHÔNG cần packages.yml.
+# Thêm dbt_utils sau nếu muốn accepted_range / unique_combination_of_columns.
+models:
+  - name: mart_daily_weather_summary
+    description: "Tổng hợp thời tiết theo ngày + thành phố (port sql/05)."
+    columns:
+      - name: city
+        tests: [not_null]
+      - name: full_date
+        tests: [not_null]
+
+  - name: mart_weekly_weather_summary
+    description: "Tổng hợp thời tiết theo tuần ISO + thành phố (port sql/05)."
+    columns:
+      - name: city
+        tests: [not_null]
+
+  - name: mart_irrigation_need
+    description: "Mart tưới FAO-56 (port sql/08), grain city + full_date + crop."
+    columns:
+      - name: city
+        tests: [not_null]
+      - name: full_date
+        tests: [not_null]
+      - name: crop
+        # relationships THAY cho tests/test_crop_seed_sync.py: mọi crop ở mapping
+        # phải tồn tại trong dim_crop, nếu không JOIN ở mart sẽ rỗng.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('weather_core', 'dim_crop')
+                field: crop
+      # irrigation_need_mm CỐ Ý có NULL (lúa nước) -> KHÔNG test not_null.

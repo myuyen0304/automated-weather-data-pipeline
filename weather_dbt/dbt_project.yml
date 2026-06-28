@@ -1,0 +1,26 @@
+name: 'weather_dbt'
+version: '1.0.0'
+config-version: 2
+
+# Khớp với key trong profiles.yml (cùng thư mục; chạy với --profiles-dir .).
+profile: 'weather_dbt'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# dbt CHỈ quản tầng mart. fact/dim do EL (sql/01-04, 06-07) nạp -> khai báo là
+# source() trong models/sources.yml, KHÔNG để dbt build. Mart mặc định là view
+# (giống sql/05, sql/08 hiện tại); đổi sang table/incremental sau nếu cần.
+models:
+  weather_dbt:
+    marts:
+      +materialized: view
