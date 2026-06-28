@@ -67,10 +67,16 @@ def run_sql_file(sql_path: Path, engine: Engine | None = None) -> None:
 
 
 def init_database(engine: Engine | None = None) -> None:
-    """Tạo schema (chạy 1 lần): staging, dimensions, fact, marts.
+    """Tạo schema (chạy 1 lần): staging, dimensions, fact, agri dims.
 
     Lưu ý: KHÔNG chạy 04_load_star_schema.sql ở đây vì script đó nạp dữ liệu
     từ staging và nên chạy mỗi lần pipeline (xem load_to_postgres).
+
+    Tầng MART (mart_daily/weekly_weather_summary từ sql/05, mart_irrigation_need
+    từ sql/08) KHÔNG còn tạo ở đây — đã chuyển sang dbt (weather_dbt/), dựng bằng
+    `dbt build`. sql/05 và sql/08 giữ lại làm tham chiếu nhưng không nằm trong
+    init nữa. Vì thế init chỉ cần tạo bảng nguồn (fact + dim) mà dbt sẽ đọc qua
+    source(); 06 vẫn cần để seed dim_crop + tạo dim_agri_region.
     """
     engine = engine or get_engine()
     for name in (
@@ -78,8 +84,6 @@ def init_database(engine: Engine | None = None) -> None:
         "02_create_dimensions.sql",
         "03_create_fact_table.sql",
         "06_create_agriculture_schema.sql",    # agri mapping + dim_crop (FAO-56 hằng số có nguồn)
-        "05_create_marts.sql",
-        "08_create_irrigation_need_mart.sql",  # mart tưới FAO-56, đọc mart 05 nên phải sau 05
     ):
         run_sql_file(SQL_DIR / name, engine)
 
