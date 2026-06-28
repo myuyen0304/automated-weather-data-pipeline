@@ -5,6 +5,7 @@ on:
   pull_request:
 
 jobs:
+  # Job 1: lint + unit tests (không cần DB — pytest ở đây chỉ assert chuỗi/logic).
   test:
     runs-on: ubuntu-latest
 
@@ -21,6 +22,72 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install ruff
+
+      # Chỉ fail trên lỗi thật (pyflakes/syntax), không bắt style — giữ CI xanh trên
+      # code hiện có, vẫn chặn được biến chưa định nghĩa / import hỏng. Siết sau nếu muốn.
+      - name: Lint (ruff)
+        run: ruff check . --select E9,F63,F7,F82
 
       - name: Run tests
         run: pytest
+
+  # Job 2: dựng schema + nạp mapping nông nghiệp + `dbt build` trên Postgres thật.
+  # Đây là phần CI cũ THIẾU: tầng dbt giờ được compile + chạy test trên DB ephemeral,
+  # không còn chỉ assert chuỗi trong file .sql.
+  dbt-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: weather_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    # config.py (python-dotenv) và profiles.yml (env_var) đọc CÙNG bộ biến này.
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: weather_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PYTHONPATH: src
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies (core + dbt)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r weather_dbt/requirements-dbt.txt
+
+      # Tạo staging + dims + fact + dim_crop (seed FAO-56) + dim_agri_region. KHÔNG dựng
+      # mart — dbt sở hữu tầng đó.
+      - name: Init database schema
+        run: python src/main.py --init-db
+
+      # Nạp city->region/crop từ CSV vào dim_agri_region (không gọi API, không transform).
+      # Để `relationships` crop->dim_crop của dbt có dữ liệu thật mà kiểm.
+      - name: Load agriculture mapping
+        run: python -c "from load_agriculture import load_agriculture_to_postgres; load_agriculture_to_postgres()"
+
+      # Compile + dựng 3 view mart đúng thứ tự qua ref(), rồi chạy data tests (gồm
+      # relationships crop->dim_crop). Fact rỗng nên mart rỗng — view vẫn dựng, test pass.
+      - name: dbt build
+        run: dbt build --project-dir weather_dbt --profiles-dir weather_dbt
