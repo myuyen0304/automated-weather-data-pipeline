@@ -105,6 +105,39 @@ def read_json_object(object_key: str) -> dict[str, Any]:
     return json.loads(response["Body"].read().decode("utf-8"))
 
 
+def put_bytes_object(
+    body: bytes,
+    object_key: str,
+    *,
+    content_type: str = "application/octet-stream",
+    quiet: bool = False,
+) -> str | None:
+    """Ghi thẳng một blob (CSV/Parquet đã serialize) lên object storage.
+
+    Dùng cho cleaned artifact khi CLEANED_LOCAL_WRITE_ENABLED=false: serialize
+    DataFrame vào bộ nhớ rồi put, không cần file tạm trên SSD.
+    """
+    if not is_object_storage_enabled():
+        return None
+
+    ensure_bucket_exists()
+    get_s3_client().put_object(
+        Bucket=config.S3_BUCKET,
+        Key=object_key,
+        Body=body,
+        ContentType=content_type,
+    )
+    if not quiet:
+        print(f"Uploaded to object storage: s3://{config.S3_BUCKET}/{object_key}")
+    return object_key
+
+
+def read_bytes_object(object_key: str) -> bytes:
+    ensure_bucket_exists()
+    response = get_s3_client().get_object(Bucket=config.S3_BUCKET, Key=object_key)
+    return response["Body"].read()
+
+
 def upload_file(
     local_path: Path,
     object_key: str | None = None,

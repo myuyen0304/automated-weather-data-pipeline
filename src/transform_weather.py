@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,7 @@ import pandas as pd
 
 from config import (
     CLEANED_DATA_DIR,
+    CLEANED_LOCAL_WRITE_ENABLED,
     CITIES,
     RAW_DATA_DIR,
     S3_BUCKET,
@@ -22,6 +24,9 @@ from extract_weather import slugify_city
 from object_storage import (
     is_object_storage_enabled,
     list_object_keys,
+    object_key_for_path,
+    put_bytes_object,
+    read_bytes_object,
     read_json_object,
     upload_file,
 )
@@ -237,26 +242,78 @@ def transform_raw_files(
 
     if output_path is None:
         output_path = CLEANED_DATA_DIR / "weather_observations.csv"
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False, encoding="utf-8")
-    upload_file(output_path)
-
     if parquet_output_path is None:
         parquet_output_path = output_path.with_suffix(".parquet")
 
-    try:
-        df.to_parquet(parquet_output_path, index=False)
-        upload_file(parquet_output_path)
-        print(f"Saved cleaned Parquet table: {parquet_output_path}")
-    except ImportError:
-        print(
-            "Skipped Parquet output because no Parquet engine is installed. "
-            "Install dependencies from requirements.txt to enable it."
+    if CLEANED_LOCAL_WRITE_ENABLED:
+        # Mặc định: ghi local rồi mirror lên object storage (no-op nếu storage tắt).
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output_path, index=False, encoding="utf-8")
+        upload_file(output_path)
+
+        try:
+            df.to_parquet(parquet_output_path, index=False)
+            upload_file(parquet_output_path)
+            print(f"Saved cleaned Parquet table: {parquet_output_path}")
+        except ImportError:
+            print(
+                "Skipped Parquet output because no Parquet engine is installed. "
+                "Install dependencies from requirements.txt to enable it."
+            )
+        cleaned_target = str(output_path)
+    else:
+        # MinIO-only: serialize trong RAM rồi put thẳng, KHÔNG để bản cleaned trên SSD.
+        if not is_object_storage_enabled():
+            raise RuntimeError(
+                "CLEANED_LOCAL_WRITE_ENABLED=false requires OBJECT_STORAGE_ENABLED=true "
+                "so cleaned data has somewhere to be stored."
+            )
+        csv_key = object_key_for_path(output_path)
+        put_bytes_object(
+            df.to_csv(index=False).encode("utf-8"),
+            csv_key,
+            content_type="text/csv; charset=utf-8",
         )
+        try:
+            buffer = io.BytesIO()
+            df.to_parquet(buffer, index=False)
+            put_bytes_object(
+                buffer.getvalue(),
+                object_key_for_path(parquet_output_path),
+                content_type="application/octet-stream",
+            )
+            print(
+                "Saved cleaned Parquet object: "
+                f"s3://{S3_BUCKET}/{object_key_for_path(parquet_output_path)}"
+            )
+        except ImportError:
+            print(
+                "Skipped Parquet output because no Parquet engine is installed. "
+                "Install dependencies from requirements.txt to enable it."
+            )
+        cleaned_target = f"s3://{S3_BUCKET}/{csv_key}"
 
     print(
-        f"Saved cleaned weather table: {output_path} "
+        f"Saved cleaned weather table: {cleaned_target} "
         f"({len(df)} rows from {selected_count} raw files)"
     )
     return output_path
+
+
+def read_cleaned_dataframe(cleaned_path: Path | None = None) -> pd.DataFrame:
+    """Đọc bảng cleaned, ưu tiên file local; fallback sang object storage.
+
+    Khi CLEANED_LOCAL_WRITE_ENABLED=false, transform ghi cleaned thẳng lên MinIO
+    nên không có bản local — lúc đó đọc theo object key (đối xứng với raw fallback
+    trong transform_raw_files). Dùng chung cho load_postgres và DQ gate để không
+    có chỗ nào đọc cleaned mà bỏ sót đường MinIO.
+    """
+    cleaned_path = cleaned_path or (CLEANED_DATA_DIR / "weather_observations.csv")
+    if cleaned_path.exists():
+        return pd.read_csv(cleaned_path)
+    if is_object_storage_enabled():
+        object_key = object_key_for_path(cleaned_path)
+        return pd.read_csv(io.BytesIO(read_bytes_object(object_key)))
+    raise FileNotFoundError(
+        f"Cleaned file not found locally and object storage disabled: {cleaned_path}"
+    )

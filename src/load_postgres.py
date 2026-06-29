@@ -13,12 +13,12 @@ sẽ báo lỗi kết nối — extract/transform vẫn chạy độc lập đư
 
 from pathlib import Path
 
-import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 from config import CLEANED_DATA_DIR, SQL_DIR, get_db_url
 from data_quality import validate_weather_observations
+from transform_weather import read_cleaned_dataframe
 
 
 STAGING_TABLE = "stg_weather_observations"
@@ -96,7 +96,9 @@ def load_cleaned_to_staging(
     cleaned_path = cleaned_path or (CLEANED_DATA_DIR / "weather_observations.csv")
     engine = engine or get_engine()
 
-    df = pd.read_csv(cleaned_path)
+    # Đọc qua helper để có fallback MinIO khi cleaned không ghi local
+    # (CLEANED_LOCAL_WRITE_ENABLED=false).
+    df = read_cleaned_dataframe(cleaned_path)
     missing_columns = [column for column in STAGING_COLUMNS if column not in df.columns]
     if missing_columns:
         missing = ", ".join(missing_columns)

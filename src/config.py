@@ -42,6 +42,11 @@ def _env_flag(name: str, default: str = "false") -> bool:
 
 OBJECT_STORAGE_ENABLED = _env_flag("OBJECT_STORAGE_ENABLED")
 RAW_LOCAL_WRITE_ENABLED = _env_flag("RAW_LOCAL_WRITE_ENABLED", "true")
+# Giống RAW_LOCAL_WRITE_ENABLED nhưng cho artifact cleaned (CSV/Parquet):
+# false  -> transform ghi cleaned THANG len MinIO, KHONG giu ban local tren SSD;
+#           load/DQ tu dong doc cleaned tu MinIO khi khong co file local.
+# Yeu cau OBJECT_STORAGE_ENABLED=true. Mac dinh true de CI/contributor khong doi.
+CLEANED_LOCAL_WRITE_ENABLED = _env_flag("CLEANED_LOCAL_WRITE_ENABLED", "true")
 S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL", "http://127.0.0.1:9000")
 S3_BUCKET = os.getenv("S3_BUCKET", "weather-pipeline")
 S3_REGION = os.getenv("S3_REGION", "us-east-1")
