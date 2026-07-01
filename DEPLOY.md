@@ -50,6 +50,20 @@ python src/main.py --skip-extract --all-raw --load   # transform + validate + lo
 python src/main.py --load-agriculture   # load dim_agri_region; mart_irrigation_need then has data
 ```
 
+No local Python? Run the exact same steps through the Docker `pipeline` service, overriding
+`DB_*` to point at Supabase instead of the compose Postgres (env passed with `-e` wins over the
+service defaults via `override=False`):
+
+```bash
+docker compose build pipeline
+docker compose run --rm \
+  -e DB_HOST=db.<project-ref>.supabase.co -e DB_PORT=5432 -e DB_NAME=postgres \
+  -e DB_USER=postgres -e DB_PASSWORD=<your-supabase-db-password> \
+  pipeline python src/main.py --init-db
+# ...then backfill / --load / --load-agriculture / `dbt build --project-dir weather_dbt`
+# with the same four -e overrides.
+```
+
 Verify in the Supabase **SQL Editor**:
 
 ```sql

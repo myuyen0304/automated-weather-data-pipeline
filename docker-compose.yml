@@ -71,6 +71,64 @@ services:
       "
     restart: "no"
 
+  # Pipeline chạy HOÀN TOÀN trong Docker (không cần Python local). Đặt sau profile
+  # "tools" nên `docker compose up -d` KHÔNG khởi động nó; `docker compose run` vẫn
+  # tự bật service này + các dependency (postgres, minio) dù có profile.
+  #   docker compose run --rm pipeline python src/main.py --init-db
+  #   docker compose run --rm pipeline python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
+  #   docker compose run --rm pipeline python src/main.py --skip-extract --all-raw --load
+  #   docker compose run --rm pipeline python src/main.py --skip-extract --load-agriculture
+  #   docker compose run --rm pipeline dbt build --project-dir weather_dbt   # dựng tầng mart
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weather-pipeline:latest
+    container_name: weather_pipeline
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      # Trong cùng compose network -> gọi nhau bằng TÊN SERVICE, không phải 127.0.0.1.
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: weather_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      OPEN_METEO_BASE_URL: https://api.open-meteo.com/v1/forecast
+      WEATHER_TIMEZONE: Asia/Ho_Chi_Minh
+      ERA5_DELAY_DAYS: ${ERA5_DELAY_DAYS:-5}
+      # Raw + cleaned ghi thẳng MinIO, không giữ bản local trong container.
+      OBJECT_STORAGE_ENABLED: "true"
+      RAW_LOCAL_WRITE_ENABLED: "false"
+      CLEANED_LOCAL_WRITE_ENABLED: "false"
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_BUCKET: ${S3_BUCKET:-weather-pipeline}
+      S3_REGION: us-east-1
+      S3_RAW_PREFIX: raw/open-meteo
+      S3_CLEANED_PREFIX: cleaned
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    restart: "no"
+
+  # Chạy pytest trong container (dev không cần Python local). Test tự monkeypatch
+  # flag object-storage nên KHÔNG cần Postgres/MinIO -> không depends_on.
+  #   docker compose run --rm tests
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: weather-pipeline:latest
+    container_name: weather_pipeline_tests
+    profiles: ["tools"]
+    environment:
+      OBJECT_STORAGE_ENABLED: "false"
+    command: ["pytest"]
+    restart: "no"
+
 volumes:
   weather_pgdata:
   weather_minio_data:

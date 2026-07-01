@@ -238,8 +238,7 @@ automated-weather-data-pipeline/
 ├── scripts/
 │   ├── build_cities_csv.py
 │   ├── check_cleaned_data_quality.py    # validation step used by Airflow
-│   ├── sync_object_storage.py           # upload existing raw/cleaned files to MinIO/S3
-│   └── run_pipeline_task.ps1            # optional manual Windows runner
+│   └── sync_object_storage.py           # upload existing raw/cleaned files to MinIO/S3
 |
 ├── dags/
 │   ├── weather_daily_pipeline.py        # Airflow daily ETL DAG
@@ -254,10 +253,11 @@ automated-weather-data-pipeline/
 ├── docs/
 │   └── AIRFLOW.md                      # Airflow runbook
 |
-├── docker-compose.yml                  # local PostgreSQL + optional MinIO object storage
+├── docker-compose.yml                  # PostgreSQL + MinIO + pipeline/tests services
 ├── docker-compose.airflow.yml          # local Airflow orchestration stack
+├── Dockerfile                          # pipeline runtime image (run ETL fully in Docker)
 ├── Dockerfile.airflow                  # Airflow image with project dependencies
-├── run_pipeline.bat                    # manual pipeline wrapper
+├── .dockerignore
 ├── .env.example
 ├── requirements.txt
 └── README.md
@@ -926,6 +926,29 @@ python src/main.py --all-raw             # reprocess the full raw history
 python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
 pytest
 ```
+
+#### Run the pipeline entirely in Docker (no local Python)
+
+The `pipeline` service in `docker-compose.yml` bakes `src/`, `sql/`, `weather_dbt/` and the
+config CSVs into an image, so the whole ETL runs in a container that reaches Postgres and MinIO
+by service name. It sits behind the `tools` profile, so `docker compose up -d` starts only the
+infrastructure (Postgres + MinIO); `docker compose run` starts the pipeline plus its dependencies
+on demand. Raw and cleaned artifacts are written straight to MinIO (no local `data/` copy):
+
+```bash
+docker compose up -d                                                        # Postgres + MinIO
+docker compose build pipeline
+docker compose run --rm pipeline python src/main.py --init-db               # schema (01/02/03/06)
+docker compose run --rm pipeline python src/backfill_weather.py --start-date 2026-05-10 --end-date 2026-06-08
+docker compose run --rm pipeline python src/main.py --skip-extract --all-raw --load
+docker compose run --rm pipeline python src/main.py --skip-extract --load-agriculture
+docker compose run --rm pipeline dbt build --project-dir weather_dbt        # build the marts
+docker compose run --rm tests                                               # pytest in the container
+```
+
+The mart layer lives in dbt (`weather_dbt/`), so `--init-db` builds fact + dimensions only —
+run `dbt build` afterwards to materialise `mart_daily_weather_summary`, `mart_weekly_weather_summary`
+and `mart_irrigation_need`.
 
 ### Step 9: Schedule daily Archive runs
 
