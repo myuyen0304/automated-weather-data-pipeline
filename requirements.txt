@@ -2,6 +2,7 @@ requests
 python-dotenv
 pandas
 pyarrow
+pandera
 psycopg2-binary
 SQLAlchemy
 pytest

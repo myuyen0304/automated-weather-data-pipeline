@@ -5,6 +5,8 @@ import pytest
 
 from config import AGRICULTURE_DATA_DIR, CITIES
 from data_quality import (
+    TEMPERATURE_MAX_C,
+    TEMPERATURE_MIN_C,
     validate_agri_region_mapping,
     validate_weather_observations,
 )
@@ -93,6 +95,20 @@ def test_validate_weather_observations_rejects_duplicate_city_time() -> None:
         validate_weather_observations(df)
 
 
+def test_validate_weather_observations_reports_multiple_failures_at_once() -> None:
+    """Pandera lazy=True gộp nhiều vi phạm cột khác nhau vào 1 lần raise."""
+    df = _valid_weather_frame()
+    df.loc[0, "humidity"] = 140
+    df.loc[1, "temperature"] = 999
+
+    with pytest.raises(ValueError) as exc_info:
+        validate_weather_observations(df)
+
+    message = str(exc_info.value)
+    assert "humidity outside 0-100" in message
+    assert f"temperature outside {TEMPERATURE_MIN_C}..{TEMPERATURE_MAX_C}C" in message
+
+
 # --- Agriculture city -> crop mapping ----------------------------------------
 
 def _valid_agri_mapping_frame() -> pd.DataFrame:
@@ -147,6 +163,20 @@ def test_validate_agri_region_mapping_rejects_unknown_crop() -> None:
 
     with pytest.raises(ValueError, match="unknown crops"):
         validate_agri_region_mapping(df)
+
+
+def test_validate_agri_region_mapping_reports_multiple_failures_at_once() -> None:
+    """Pandera lazy=True gộp nhiều vi phạm cột khác nhau vào 1 lần raise."""
+    df = _valid_agri_mapping_frame()
+    df.loc[0, "crop"] = "dragonfruit"
+    df.loc[1, "area_share"] = 1.5
+
+    with pytest.raises(ValueError) as exc_info:
+        validate_agri_region_mapping(df)
+
+    message = str(exc_info.value)
+    assert "unknown crops" in message
+    assert "area_share out of range" in message
 
 
 def test_validate_agri_region_mapping_rejects_area_share_out_of_range() -> None:
