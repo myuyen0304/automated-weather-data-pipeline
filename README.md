@@ -24,40 +24,16 @@ The pipeline is orchestrated with Apache Airflow, so the daily ETL runs as a sch
 
 ## 2. Project Objectives
 
-The main objectives of this project are:
-
-- Automatically collect daily weather data from Open-Meteo.
-- Query weather data by city coordinates.
-- Store the original Open-Meteo API response as raw JSON files.
-- Clean, normalize, and transform weather data using Python.
-- Load processed data into PostgreSQL.
-- Run data quality checks before loading data into PostgreSQL.
-- Design a simple analytical data model using fact and dimension tables.
-- Create SQL marts for daily and weekly weather analysis.
-- Visualize weather trends using Power BI.
-- Orchestrate the daily pipeline with Apache Airflow.
+Automatically collect hourly weather for 34 Vietnamese provinces, store the raw API response,
+clean and transform it in Python, validate it, load a PostgreSQL star schema, model daily/weekly
+and FAO-56 irrigation marts in dbt, visualise in Power BI, and orchestrate the whole thing daily
+with Apache Airflow.
 
 ---
 
 ## 3. Pipeline Architecture
 
 ![Automated Weather Data Pipeline](asset/weather-pipeline.png)
-
-Current production-style flow:
-
-```text
-Open-Meteo Archive API
-    -> Airflow DAG schedule
-    -> Raw hourly JSON files
-    -> Python + pandas transformation
-    -> Data quality validation
-    -> PostgreSQL staging
-    -> dim_location / dim_date / fact_weather_observation
-    -> mart_daily_weather_summary / mart_weekly_weather_summary
-    -> Power BI dashboard
-```
-
-The full flow, including the FAO-56 agriculture branch, as a graph:
 
 ```mermaid
 flowchart LR
@@ -137,8 +113,8 @@ Honesty by design (these caveats are the point — this is a data-integrity show
 | Raw Storage | Local JSON files |
 | Object Storage | Optional MinIO / S3-compatible bucket sync |
 | Database | PostgreSQL |
-| Data Modelling | SQL |
-| Analytics Layer | SQL views / mart tables |
+| Data Modelling | Fact + dimensions via SQL DDL; **marts modelled in dbt** (`weather_dbt/`) |
+| Analytics Layer | dbt models (`ref()`/`source()`) with declarative tests |
 | Local Database | Docker Compose (postgres:16) |
 | Dashboard | Power BI |
 | Orchestration | Apache Airflow (`docker-compose.airflow.yml`, `dags/`) |
@@ -174,28 +150,12 @@ Example scheduled Archive request for Ho Chi Minh City:
 https://archive-api.open-meteo.com/v1/archive?latitude=10.823&longitude=106.6296&start_date=2026-06-11&end_date=2026-06-11&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,cloud_cover,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m&timezone=Asia/Ho_Chi_Minh
 ```
 
-The pipeline requests these variables from the Open-Meteo `hourly` block and splits each
-returned hour into its own `current`-shaped record. Archive responses do not include
-`is_day`, so the Archive request also asks for `daily=sunrise,sunset` and derives `is_day`
-by comparing each hour against that day's real sunrise/sunset (falling back to a
-06:00–18:00 heuristic only if the sun times are missing). Useful Open-Meteo variables include:
-
-| Open-Meteo field | Meaning |
-|---|---|
-| `current.time` | Observation timestamp |
-| `current.temperature_2m` | Temperature at 2 meters |
-| `current.relative_humidity_2m` | Relative humidity at 2 meters |
-| `current.apparent_temperature` | Apparent temperature |
-| `current.precipitation` | Total precipitation |
-| `current.rain` | Rain amount |
-| `current.weather_code` | Open-Meteo weather condition code |
-| `current.cloud_cover` | Cloud cover percentage |
-| `current.pressure_msl` | Mean sea level pressure |
-| `current.surface_pressure` | Surface pressure |
-| `current.wind_speed_10m` | Wind speed at 10 meters |
-| `current.wind_direction_10m` | Wind direction at 10 meters |
-| `current.wind_gusts_10m` | Wind gusts at 10 meters |
-| `current.is_day` | Day or night flag |
+The pipeline requests the standard weather variables (temperature, humidity, precipitation, rain,
+weather code, cloud cover, pressure, wind speed/direction/gusts) from the Open-Meteo `hourly` block
+and splits each returned hour into its own `current`-shaped record. Archive responses do not include
+`is_day`, so the Archive request also asks for `daily=sunrise,sunset` and derives `is_day` by
+comparing each hour against that day's real sunrise/sunset (falling back to a 06:00–18:00 heuristic
+only if the sun times are missing).
 
 ---
 
@@ -223,6 +183,13 @@ automated-weather-data-pipeline/
 │   ├── 06_create_agriculture_schema.sql # dim_crop (FAO-56 Kc) + dim_agri_region + staging
 │   └── 07_load_agriculture_schema.sql   # staging -> dim_agri_region
 │   # marts moved to dbt -> weather_dbt/models/marts/ (mart_daily/weekly, mart_irrigation_need)
+|
+├── weather_dbt/                         # dbt project = the analytics mart layer
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   └── models/
+│       ├── sources.yml                  # fact + dims (EL-loaded, dbt reads via source())
+│       └── marts/                       # mart_daily/weekly_weather_summary, mart_irrigation_need, schema.yml
 |
 ├── src/
 │   ├── config.py
@@ -302,155 +269,41 @@ The purpose of storing raw JSON files is to preserve the original API response. 
 
 ### 7.2 Transform
 
-The transformation step reads raw Open-Meteo JSON files and converts them into structured tabular data.
-
-Main transformation tasks:
-
-- Extract required fields from the `current` block.
-- Add city and country from the local city configuration.
-- Standardize column names for analytics.
-- Convert `current.time` into a proper timestamp.
-- Convert `weather_code` into a readable `weather_condition`.
-- Handle missing rain and precipitation values.
-- Normalize numeric fields.
-- Add an `inserted_at` timestamp.
-- Prepare the dataset for loading into PostgreSQL.
-
-Output columns may include:
-
-| Column | Description |
-|---|---|
-| city | City name |
-| country | Country name |
-| latitude | Location latitude |
-| longitude | Location longitude |
-| observation_time | Time of weather observation |
-| temperature | Temperature value |
-| humidity | Humidity percentage |
-| apparent_temperature | Apparent temperature |
-| pressure_msl | Mean sea level pressure |
-| surface_pressure | Surface pressure |
-| wind_speed | Wind speed |
-| wind_direction | Wind direction |
-| wind_gusts | Wind gusts |
-| precipitation | Total precipitation |
-| rain | Rain amount |
-| cloud_cover | Cloud coverage percentage |
-| weather_code | Open-Meteo weather code |
-| weather_condition | Readable weather condition mapped from `weather_code` |
-| is_day | Day or night flag |
-| inserted_at | Time when the pipeline inserted the data |
+`transform_weather.py` reads the raw JSON files and produces a clean, tabular dataset written to
+`data/cleaned/weather_observations.{csv,parquet}`. Key steps: pull fields from the `current` block,
+add city/country from the config, standardise column names, parse `current.time` into a timestamp,
+map `weather_code` → readable `weather_condition`, handle missing rain/precipitation, and add an
+`inserted_at` stamp. (Reads run through a `ThreadPoolExecutor` since per-file I/O is the bottleneck
+on Windows.)
 
 ### 7.3 Load
 
-The load step inserts cleaned weather data into a PostgreSQL staging table.
-
-The staging table keeps cleaned but not yet modelled data. It acts as the intermediate layer between raw files and the analytical data model.
-
-Example staging table:
-
-```sql
-CREATE TABLE stg_weather_observations (
-    city VARCHAR(100),
-    country VARCHAR(100),
-    latitude NUMERIC(9,6),
-    longitude NUMERIC(9,6),
-    observation_time TIMESTAMP,
-    temperature NUMERIC(5,2),
-    humidity NUMERIC(5,2),
-    apparent_temperature NUMERIC(5,2),
-    pressure_msl NUMERIC(7,2),
-    surface_pressure NUMERIC(7,2),
-    wind_speed NUMERIC(6,2),
-    wind_direction NUMERIC(6,2),
-    wind_gusts NUMERIC(6,2),
-    precipitation NUMERIC(6,2),
-    rain NUMERIC(6,2),
-    cloud_cover INT,
-    weather_code INT,
-    weather_condition VARCHAR(100),
-    is_day BOOLEAN,
-    inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+Cleaned data is validated (§12), truncated into the `stg_weather_observations` staging table (a
+buffer for the current batch), then upserted into the star schema by `sql/04_load_star_schema.sql`.
+The staging schema mirrors the cleaned columns above; full DDL is in `sql/01_create_staging_table.sql`.
 
 ---
 
 ## 8. Data Modelling
 
-This project applies a simple star schema for analytical querying.
-
-The model contains:
-
-- `dim_location`
-- `dim_date`
-- `fact_weather_observation`
+The fact and dimension tables are a simple star schema, created by `--init-db`
+(`sql/02_create_dimensions.sql`, `sql/03_create_fact_table.sql`):
 
 ```text
 dim_location
       |
-      |
 fact_weather_observation ---- dim_date
 ```
 
-### 8.1 Dimension Table: dim_location
+- **`dim_location`** — one row per city (`location_id`, city, country, latitude, longitude).
+- **`dim_date`** — date attributes (`date_id`, full_date, day/month/quarter/year, day_of_week, is_weekend).
+- **`fact_weather_observation`** — grain = one observation per `(location × hour)`; measures
+  (temperature, humidity, wind, pressure, precipitation, cloud cover, `weather_condition`, `is_day`,
+  plus the FAO-56 agronomic inputs `et0_fao` / `soil_moisture` / `soil_temperature` /
+  `shortwave_radiation`). The load upserts on `(location_id, observation_time)`, so it is
+  **idempotent** and a later Archive batch overwrites an earlier forecast row for the same city-hour.
 
-The `dim_location` table stores information about each city or location.
-
-```sql
-CREATE TABLE dim_location (
-    location_id SERIAL PRIMARY KEY,
-    city VARCHAR(100),
-    country VARCHAR(100),
-    latitude NUMERIC(9,6),
-    longitude NUMERIC(9,6)
-);
-```
-
-### 8.2 Dimension Table: dim_date
-
-The `dim_date` table stores date attributes for time-based analysis.
-
-```sql
-CREATE TABLE dim_date (
-    date_id INT PRIMARY KEY,
-    full_date DATE,
-    day INT,
-    month INT,
-    quarter INT,
-    year INT,
-    day_of_week VARCHAR(20),
-    is_weekend BOOLEAN
-);
-```
-
-### 8.3 Fact Table: fact_weather_observation
-
-The `fact_weather_observation` table stores measurable weather values.
-
-```sql
-CREATE TABLE fact_weather_observation (
-    observation_id BIGSERIAL PRIMARY KEY,
-    location_id INT REFERENCES dim_location(location_id),
-    date_id INT REFERENCES dim_date(date_id),
-    observation_time TIMESTAMP,
-    temperature NUMERIC(5,2),
-    humidity NUMERIC(5,2),
-    apparent_temperature NUMERIC(5,2),
-    pressure_msl NUMERIC(7,2),
-    surface_pressure NUMERIC(7,2),
-    wind_speed NUMERIC(6,2),
-    wind_direction NUMERIC(6,2),
-    wind_gusts NUMERIC(6,2),
-    precipitation NUMERIC(6,2),
-    rain NUMERIC(6,2),
-    cloud_cover INT,
-    weather_code INT,
-    weather_condition VARCHAR(100),
-    is_day BOOLEAN,
-    inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+The mart/analytics layer on top of this fact is **modelled in dbt** — see §9. Full DDL lives in `sql/`.
 
 ### 8.4 Agriculture dimensions (FAO-56 layer)
 
@@ -465,53 +318,30 @@ The agriculture layer adds two dimensions consumed by `mart_irrigation_need` (se
 
 ---
 
-## 9. Analytics Mart
+## 9. Analytics Marts (dbt)
 
-The analytics mart is created for reporting and dashboarding.
+The mart layer is a **dbt project** (`weather_dbt/`) that reads the fact + dimensions and builds
+three models. dbt derives the build order from `ref()`/`source()` (replacing the old hand-ordered
+`sql/05` + `sql/08` scripts), and `schema.yml` enforces correctness with declarative tests:
 
-Example mart:
+| dbt model | Grain | Purpose |
+|---|---|---|
+| `mart_daily_weather_summary` | city × day | daily avg/max/min temperature, humidity, wind, pressure, total rain, cloud cover |
+| `mart_weekly_weather_summary` | city × ISO week | weekly rollup of the same measures |
+| `mart_irrigation_need` | city × day × crop | FAO-56 irrigation advisory (see Highlight); `ref()`s the daily summary |
 
-```sql
-CREATE VIEW mart_daily_weather_summary AS
-SELECT
-    l.city,
-    d.full_date,
-    AVG(f.temperature) AS avg_temperature,
-    MAX(f.temperature) AS max_temperature,
-    MIN(f.temperature) AS min_temperature,
-    AVG(f.humidity) AS avg_humidity,
-    AVG(f.apparent_temperature) AS avg_apparent_temperature,
-    AVG(f.pressure_msl) AS avg_pressure_msl,
-    AVG(f.surface_pressure) AS avg_surface_pressure,
-    AVG(f.wind_speed) AS avg_wind_speed,
-    MAX(f.wind_gusts) AS max_wind_gusts,
-    SUM(f.precipitation) AS total_precipitation,
-    SUM(f.rain) AS total_rain,
-    AVG(f.cloud_cover) AS avg_cloud_cover
-FROM fact_weather_observation f
-JOIN dim_location l
-    ON f.location_id = l.location_id
-JOIN dim_date d
-    ON f.date_id = d.date_id
-GROUP BY
-    l.city,
-    d.full_date;
-```
+Build them with `dbt build --project-dir weather_dbt` (models are Postgres **views** by default;
+switch to `table`/`incremental` via `+materialized` in `dbt_project.yml` without touching SQL).
+The daily marts answer descriptive questions (*avg temp by city, wettest city this week*);
+`mart_irrigation_need` answers the operational one — *which region needs irrigation today and how
+many mm* — handling flooded paddy rice as `NULL` (water balance not applicable). See
+`weather_dbt/README.md` and `docs/DBT_CONCEPT_NOTE.md` for details.
 
-This mart can be used to answer questions such as:
+![dbt model lineage graph](asset/dbt-graph.png)
 
-- What is the average daily temperature by city?
-- Which city had the highest temperature?
-- How much rain was recorded this week?
-- How does humidity change over time?
-- Which city has the highest average wind speed?
-- How does pressure change by city and date?
-
-A second mart, **`mart_irrigation_need`** (FAO-56), is built on top of `mart_daily_weather_summary`
-joined to `dim_crop` and `dim_agri_region`. It answers operational questions instead of descriptive
-ones — *which region needs irrigation today and how many mm* — and handles flooded paddy rice as
-`NULL` (water balance not applicable). See the Highlight section near the top for the model and its
-honesty caveats.
+The dbt lineage graph shows the build order derived from `ref()`/`source()`: the fact +
+dimension sources feed `mart_daily_weather_summary`, which `mart_irrigation_need` then
+references.
 
 ---
 
@@ -556,6 +386,19 @@ The trend page uses `mart_daily_weather_summary` and
 daily trend inspection and weekly aggregation for rainfall, temperature,
 humidity, wind, cloud cover, and pressure analysis.
 
+### 10.4 Irrigation Need (FAO-56)
+
+![Power BI irrigation need dashboard](asset/irrigation-need.jpg)
+
+The irrigation page reads `mart_irrigation_need` and answers an operational question instead of
+a descriptive one: *which region needs irrigation today, and how many mm?* It slices by
+`agri_region`, `crop`, `full_date`, and `crop_role`, with KPI cards for cities needing irrigation,
+average/max irrigation need, and average effective rainfall; a bubble map and a "top cities
+needing irrigation" bar rank the neediest regions; an ETc-vs-effective-rain bar shows the water
+balance behind each number; and a detail table surfaces the plain-language `advisory_message` per
+city/crop. See the Highlight section near the top for the FAO-56 model and its honesty caveats
+(flooded rice → NULL, not 0 mm; unsourced values left NULL, not fabricated).
+
 ---
 
 ## 11. Automation
@@ -599,18 +442,7 @@ Unpause the daily DAG so the Airflow scheduler can run it:
 docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags unpause weather_daily_pipeline
 ```
 
-Open:
-
-```text
-http://localhost:8080
-```
-
-Login:
-
-```text
-Username: airflow
-Password: airflow
-```
+Open the UI at `http://localhost:8080` (login `airflow` / `airflow`).
 
 Main DAGs:
 
@@ -619,17 +451,7 @@ Main DAGs:
 | `weather_daily_pipeline` | Daily 08:30 Asia/Ho_Chi_Minh | Archive API catch-up for `today - 5`, then PostgreSQL marts |
 | `weather_archive_backfill` | Manual trigger | Archive API backfill, then reload all raw history |
 
-See `docs/AIRFLOW.md` for the full runbook.
-
-Check Airflow status:
-
-```powershell
-docker compose -f docker-compose.airflow.yml ps
-docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags list
-docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow dags list-runs weather_daily_pipeline
-```
-
-Airflow runs the daily pipeline through these DAG tasks:
+See `docs/AIRFLOW.md` for the full runbook. The daily pipeline runs these DAG tasks:
 
 ```text
 init_schema
@@ -638,7 +460,19 @@ init_schema
   -> transform_archive_day
   -> validate_cleaned_data
   -> load_postgres_marts
+  -> load_agriculture
+  -> dbt_build            # builds the dbt marts (replaces the old sql/05 + sql/08)
 ```
+
+![Airflow DAG graph view](asset/dag-graph.png)
+
+The DAG graph view shows the task chain wired by dependencies, so each stage only runs after
+the previous one succeeds.
+
+![Airflow task run and logs](asset/airflow-task.png)
+
+Each task exposes its own run status and logs in the UI — useful for confirming a scheduled
+load succeeded and for debugging a failed run.
 
 ### Optional MinIO object storage
 
@@ -684,6 +518,20 @@ cleaned/weather_observations.parquet
 `RAW_LOCAL_WRITE_ENABLED=false` means raw JSON will not be created under
 `data/raw/open-meteo`; it is put directly to the configured MinIO/S3 bucket.
 
+![MinIO bucket overview](asset/minio-overview.png)
+
+The MinIO console shows the `weather-pipeline` bucket with the `raw/` and `cleaned/` prefixes
+synced by the pipeline.
+
+![MinIO raw partitions](asset/minio-raw.png)
+
+Raw JSON keeps its `date=YYYY-MM-DD/hour=HH/<city>.json` partition layout in object storage,
+matching the local layout.
+
+![MinIO cleaned artifacts](asset/minio-cleaned.png)
+
+The `cleaned/` prefix holds the CSV/Parquet analytics copies uploaded after each transform.
+
 To upload files that already exist locally, run:
 
 ```powershell
@@ -699,7 +547,7 @@ loading into PostgreSQL only happens with `--load`.
 |---|---|
 | (none) | Extract from Open-Meteo Forecast API, then transform the current batch to cleaned CSV |
 | `--load` | Also load cleaned data into PostgreSQL and rebuild the star schema; scheduled automation uses Archive first, then `--skip-extract --date <target-date> --load` |
-| `--init-db` | Create the full schema (staging, dims, fact, weather marts, agriculture schema + FAO-56 irrigation mart), then exit |
+| `--init-db` | Create the schema (staging, dims, fact, agriculture schema `06`) then exit — marts are built separately by dbt |
 | `--skip-extract` | Transform existing raw JSON without calling the API |
 | `--extract-only` | Only fetch raw JSON, skip transform (cannot combine with `--load` / `--load-agriculture`) |
 | `--date YYYY-MM-DD` | Transform raw JSON from one date partition |
@@ -891,18 +739,18 @@ MinIO is only used by the pipeline when `OBJECT_STORAGE_ENABLED=true`.
 
 ### Step 7: Create database tables
 
-Create the schema once (staging, dimensions, fact, marts):
+Create the schema once (staging, dimensions, fact, agriculture dimensions):
 
 ```bash
 python src/main.py --init-db
 ```
 
-This runs `sql/01`, `02`, `03`, then the agriculture schema `06`, the weather marts `05`, and the
-FAO-56 irrigation mart `08` (in that dependency order). Note: `sql/04_load_star_schema.sql` and
-`sql/07_load_agriculture_schema.sql` are **not** run here — they load data from staging and run on
-every `--load` / `--load-agriculture` batch instead.
+This runs `sql/01`, `02`, `03`, then the agriculture schema `06` — fact + dimensions only. The
+**marts now live in dbt**, so build them separately with `dbt build` (§8 / §9). Note:
+`sql/04_load_star_schema.sql` and `sql/07_load_agriculture_schema.sql` are **not** run here — they
+load data from staging on every `--load` / `--load-agriculture` batch instead.
 
-To populate the agriculture dimension and the FAO-56 mart, run once after `--init-db`:
+To populate the agriculture dimension (consumed by the dbt FAO-56 mart), run once after `--init-db`:
 
 ```bash
 python src/main.py --load-agriculture
@@ -946,10 +794,6 @@ docker compose run --rm pipeline dbt build --project-dir weather_dbt        # bu
 docker compose run --rm tests                                               # pytest in the container
 ```
 
-The mart layer lives in dbt (`weather_dbt/`), so `--init-db` builds fact + dimensions only —
-run `dbt build` afterwards to materialise `mart_daily_weather_summary`, `mart_weekly_weather_summary`
-and `mart_irrigation_need`.
-
 ### Step 9: Schedule daily Archive runs
 
 Start Airflow and unpause the daily DAG:
@@ -972,17 +816,9 @@ docker compose -f docker-compose.airflow.yml exec -T airflow-scheduler airflow d
 
 ## 16. Expected Output
 
-After the pipeline runs successfully, the system should produce:
-
-- Raw Open-Meteo JSON files stored by date, hour, and city slug.
-- Cleaned weather data loaded into PostgreSQL.
-- Data quality validation before the staging load.
-- Cleaned CSV plus Parquet output for reusable analytical storage.
-- Fact and dimension tables for analytical querying.
-- SQL mart table or view for dashboard reporting.
-- Power BI-ready marts and optional local HTML visual reports.
-- Automated daily execution through Airflow DAG scheduling.
-- Automated test checks through pytest and GitHub Actions CI.
+After a successful run: raw JSON partitioned by date/hour/city, cleaned CSV + Parquet, a validated
+PostgreSQL star schema, dbt marts (daily/weekly summary + FAO-56 irrigation need) ready for Power BI,
+automated daily execution via Airflow, and green pytest + GitHub Actions CI.
 
 ---
 
@@ -992,7 +828,7 @@ Possible improvements for future versions:
 
 - [Done locally] Store raw JSON and cleaned data in MinIO/S3-compatible object storage.
 - [Done] Save cleaned data as Parquet files alongside the CSV load artifact.
-- Use dbt for data modelling and testing.
+- [Done] Model the mart layer in dbt with declarative tests (`weather_dbt/`).
 - Expand data quality checks with Great Expectations or Pandera if the project grows.
 - **Publish a live demo** — see [`DEPLOY.md`](DEPLOY.md) for a free Supabase + Power BI path that
   puts the data and dashboard online without an on-premises gateway.
@@ -1014,14 +850,12 @@ This project demonstrates the following Data Engineering skills:
 - Python data transformation
 - PostgreSQL database loading
 - Data quality validation
-- SQL data modelling
-- Star schema design
-- Fact and dimension table design
+- Star schema design (fact + dimensions in SQL DDL)
+- dbt modelling (`ref()`/`source()`, declarative tests)
 - Historical backfill
 - Airflow DAG orchestration
 - Automated testing and CI
-- SQL analytics
-- Domain modelling with FAO-56 (crop evapotranspiration, GDD) in SQL
+- Domain modelling with FAO-56 (crop evapotranspiration, GDD)
 - Multi-crop dimensional modelling (orthogonal `crop_role` / `is_flagship` axes)
 - Data-integrity discipline (sourced constants, NULL over fabrication)
 - Dashboard design
