@@ -1,0 +1,27 @@
+# Giảm build context + KHÔNG để .env lọt vào image (config.py load_dotenv sẽ đọc
+# nếu có, ta muốn compose environment: thắng qua override=False).
+.env
+.env.example
+.venv/
+venv/
+.uv-cache/
+.git/
+.github/
+__pycache__/
+*.py[cod]
+
+# Dữ liệu chạy: raw/cleaned nằm trên MinIO, không cần trong image.
+data/raw/
+data/cleaned/
+
+# Airflow, dbt build output, logs, reports, notes — không cần cho image pipeline.
+dags/
+logs/
+reports/
+docs/
+weather_dbt/target/
+weather_dbt/dbt_packages/
+weather_dbt/logs/
+.test-tmp/
+*.pbix
+airflow_simple_auth_passwords.json
